@@ -11,11 +11,14 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px; }
         h1 { font-size: 24px; background: linear-gradient(90deg, #00f2fe, #4facfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        .header-right { display: flex; align-items: center; gap: 20px; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
         .user-email { color: #888; font-size: 14px; }
         
         .logout-btn { color: #ff4444; text-decoration: none; font-size: 14px; border: 1px solid #ff4444; padding: 8px 15px; border-radius: 8px; transition: 0.3s; }
         .logout-btn:hover { background: #ff4444; color: #fff; }
+
+        .admin-btn { background: #ffaa00; color: black; text-decoration: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; font-size: 14px; transition: 0.3s; }
+        .admin-btn:hover { background: #ffc233; transform: translateY(-2px); }
 
         .main-card { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255,255,255,0.05); padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
@@ -58,8 +61,12 @@
     <div class="header">
         <h1>⚡ Premium Multi-Scraper</h1>
         
-        <!-- Yahan Logout Link Update kiya gaya hai aur User Email dikhaya gaya hai -->
         <div class="header-right">
+            <!-- ADMIN PANEL BUTTON (Sirf admin ko dikhega) -->
+            {% if is_admin %}
+                <a href="/admin/approvals" class="admin-btn">👑 Admin Panel</a>
+            {% endif %}
+
             <span class="user-email">👤 {{ user }}</span>
             <a href="/logout" class="logout-btn">Logout</a>
         </div>
@@ -75,10 +82,7 @@
                 <option value="youtube">YouTube</option>
             </select>
 
-            <!-- TikTok Status Button -->
             <button onclick="startScraping('status')" id="btnStatus" class="btn-action btn-status-check">⚡ Fast Status Check</button>
-            
-            <!-- Full Scan Button -->
             <button onclick="startScraping('full')" id="btnFull" class="btn-action btn-full-scan">🔍 Full Data Scrape</button>
         </div>
         
@@ -102,11 +106,10 @@
         let currentScrapedData = [];
         let currentMode = "";
         
-        // Platform change hone par buttons update karein
         document.getElementById('platformSelect').addEventListener('change', function() {
             const platform = this.value;
             if(platform === 'youtube') {
-                document.getElementById('btnStatus').style.display = 'none'; // YouTube ke liye fast status hide
+                document.getElementById('btnStatus').style.display = 'none';
                 document.getElementById('btnFull').innerHTML = '▶️ YouTube Full Scrape';
             } else {
                 document.getElementById('btnStatus').style.display = 'block';
