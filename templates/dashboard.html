@@ -10,6 +10,10 @@
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px; }
         h1 { font-size: 24px; background: linear-gradient(90deg, #00f2fe, #4facfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .header-right { display: flex; align-items: center; gap: 20px; }
+        .user-email { color: #888; font-size: 14px; }
+        
         .logout-btn { color: #ff4444; text-decoration: none; font-size: 14px; border: 1px solid #ff4444; padding: 8px 15px; border-radius: 8px; transition: 0.3s; }
         .logout-btn:hover { background: #ff4444; color: #fff; }
 
@@ -53,7 +57,12 @@
 <body>
     <div class="header">
         <h1>⚡ Premium Multi-Scraper</h1>
-        <a href="/" class="logout-btn">Logout</a>
+        
+        <!-- Yahan Logout Link Update kiya gaya hai aur User Email dikhaya gaya hai -->
+        <div class="header-right">
+            <span class="user-email">👤 {{ user }}</span>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
     </div>
 
     <div class="main-card">
