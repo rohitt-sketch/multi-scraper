@@ -13,9 +13,9 @@ ADMIN_EMAIL = "joshirohitt@gmail.com"
 
 # --- Database Setup ---
 def init_db():
-    conn = sqlite3.connect('scraper.db')
+    # DHYAN DEIN: Database ka naam badal kar scraper_v2.db kar diya gaya hai
+    conn = sqlite3.connect('scraper_v2.db')
     c = conn.cursor()
-    # Table mein status column add kiya gaya hai (default 'pending')
     c.execute('''CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, password TEXT, status TEXT DEFAULT 'pending')''')
     conn.commit()
     conn.close()
@@ -32,23 +32,19 @@ async def home(request: Request):
 # 2. Register Route
 @app.post("/register")
 async def register(request: Request, email: str = Form(...), password: str = Form(...)):
-    conn = sqlite3.connect('scraper.db')
+    conn = sqlite3.connect('scraper_v2.db')
     c = conn.cursor()
     try:
-        # Agar admin khud register kar raha hai, toh use direct approved karo
         status = 'approved' if email == ADMIN_EMAIL else 'pending'
-        
         c.execute("INSERT INTO users (email, password, status) VALUES (?, ?, ?)", (email, password, status))
         conn.commit()
         conn.close()
         
         if status == 'approved':
-            # Admin direct login ho jayega
             response = RedirectResponse(url="/dashboard", status_code=303)
             response.set_cookie(key="user_session", value=email, httponly=True)
             return response
         else:
-            # Normal user ko wait karne bolo
             return RedirectResponse(url="/?error=Account ban gaya! Ab Admin approval ka wait karein.", status_code=303)
             
     except sqlite3.IntegrityError:
@@ -58,7 +54,7 @@ async def register(request: Request, email: str = Form(...), password: str = For
 # 3. Login Route
 @app.post("/login")
 async def login(request: Request, email: str = Form(...), password: str = Form(...)):
-    conn = sqlite3.connect('scraper.db')
+    conn = sqlite3.connect('scraper_v2.db')
     c = conn.cursor()
     c.execute("SELECT password, status FROM users WHERE email = ?", (email,))
     user = c.fetchone()
@@ -69,7 +65,6 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
         if status == 'pending':
             return RedirectResponse(url="/?error=Aapka account abhi approve nahi hua hai. Admin se sampark karein.", status_code=303)
         
-        # Agar approved hai
         response = RedirectResponse(url="/dashboard", status_code=303)
         response.set_cookie(key="user_session", value=email, httponly=True)
         return response
@@ -97,9 +92,9 @@ async def logout():
 async def admin_approvals(request: Request):
     user_email = request.cookies.get("user_session")
     if user_email != ADMIN_EMAIL:
-        return RedirectResponse(url="/dashboard", status_code=303) # Sirf admin hi access kar sakta hai
+        return RedirectResponse(url="/dashboard", status_code=303)
         
-    conn = sqlite3.connect('scraper.db')
+    conn = sqlite3.connect('scraper_v2.db')
     c = conn.cursor()
     c.execute("SELECT email, status FROM users WHERE email != ?", (ADMIN_EMAIL,))
     all_users = c.fetchall()
@@ -114,7 +109,7 @@ async def approve_user(request: Request, target_email: str = Form(...)):
     if user_email != ADMIN_EMAIL:
         return RedirectResponse(url="/dashboard", status_code=303)
         
-    conn = sqlite3.connect('scraper.db')
+    conn = sqlite3.connect('scraper_v2.db')
     c = conn.cursor()
     c.execute("UPDATE users SET status = 'approved' WHERE email = ?", (target_email,))
     conn.commit()
