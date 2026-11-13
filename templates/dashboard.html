@@ -62,7 +62,6 @@
         <h1>⚡ Premium Multi-Scraper</h1>
         
         <div class="header-right">
-            <!-- ADMIN PANEL BUTTON (Sirf admin ko dikhega) -->
             {% if is_admin %}
                 <a href="/admin/approvals" class="admin-btn">👑 Admin Panel</a>
             {% endif %}
@@ -83,7 +82,7 @@
             </select>
 
             <button onclick="startScraping('status')" id="btnStatus" class="btn-action btn-status-check">⚡ Fast Status Check</button>
-            <button onclick="startScraping('full')" id="btnFull" class="btn-action btn-full-scan">🔍 Full Data Scrape</button>
+            <button onclick="startScraping('full')" id="btnFull" class="btn-action btn-full-scan">🔍 TikTok Full Scrape</button>
         </div>
         
         <div id="loader" class="loader">⏳ Processing, please wait...</div>
@@ -105,23 +104,32 @@
     <script>
         let currentScrapedData = [];
         let currentMode = "";
-        
-        document.getElementById('platformSelect').addEventListener('change', function() {
-            const platform = this.value;
-            if(platform === 'youtube') {
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text ?? "-";
+            return div.innerHTML;
+        }
+
+        function updatePlatformUI() {
+            const platform = document.getElementById('platformSelect').value;
+            if (platform === 'youtube') {
                 document.getElementById('btnStatus').style.display = 'none';
                 document.getElementById('btnFull').innerHTML = '▶️ YouTube Full Scrape';
             } else {
                 document.getElementById('btnStatus').style.display = 'block';
                 document.getElementById('btnFull').innerHTML = '🔍 TikTok Full Scrape';
             }
-        });
+        }
+
+        document.getElementById('platformSelect').addEventListener('change', updatePlatformUI);
+        updatePlatformUI();
 
         async function startScraping(mode) {
             const urls = document.getElementById('urlInput').value;
             const platform = document.getElementById('platformSelect').value;
             
-            if(!urls.trim()) { alert('Please enter at least one link!'); return; }
+            if (!urls.trim()) { alert('Please enter at least one link!'); return; }
 
             currentMode = mode;
             document.getElementById('btnStatus').disabled = true;
@@ -130,7 +138,7 @@
             document.getElementById('resultsArea').style.display = 'none';
             document.getElementById('copyBar').style.display = 'none';
             
-            if(mode === 'status') {
+            if (mode === 'status') {
                 document.getElementById('loader').innerText = "⚡ Checking status (Fast Mode)...";
             } else {
                 document.getElementById('loader').innerText = `⏳ Fetching full data from ${platform.toUpperCase()}...`;
@@ -145,10 +153,17 @@
 
             try {
                 const response = await fetch(endpoint, { method: 'POST', body: formData });
+                if (response.status === 401) {
+                    window.location.href = '/';
+                    return;
+                }
                 const data = await response.json();
+                if (!response.ok || data.error) {
+                    throw new Error(data.error || 'Server error occurred');
+                }
                 
-                currentScrapedData = data.results;
-                renderTable(mode, data.results);
+                currentScrapedData = data.results || [];
+                renderTable(mode, currentScrapedData);
                 
                 document.getElementById('resultsArea').style.display = 'block';
                 document.getElementById('copyBar').style.display = 'flex';
@@ -173,8 +188,8 @@
                     const tr = document.createElement('tr');
                     const isActive = item.status === 'Active';
                     tr.innerHTML = `
-                        <td class="${isActive ? 'success' : 'failed'}">${item.status}</td>
-                        <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.url}</td>
+                        <td class="${isActive ? 'success' : 'failed'}">${escapeHtml(item.status)}</td>
+                        <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.url)}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -187,16 +202,16 @@
                 `;
                 results.forEach(item => {
                     const tr = document.createElement('tr');
-                    const isSuccess = item.status === 'Success';
+                    const isSuccess = item.status === 'Success' || item.status === 'Active';
                     tr.innerHTML = `
-                        <td class="${isSuccess ? 'success' : 'failed'}">${item.status}</td>
-                        <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.title}">${item.title}</td>
-                        <td>${item.author}</td>
-                        <td><b>${item.views}</b></td>
-                        <td>${item.likes}</td>
-                        <td>${item.duration}</td>
-                        <td>${item.date}</td>
-                        <td>${item.subs}</td>
+                        <td class="${isSuccess ? 'success' : 'failed'}">${escapeHtml(item.status)}</td>
+                        <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</td>
+                        <td>${escapeHtml(item.author)}</td>
+                        <td><b>${escapeHtml(item.views)}</b></td>
+                        <td>${escapeHtml(item.likes)}</td>
+                        <td>${escapeHtml(item.duration)}</td>
+                        <td>${escapeHtml(item.date)}</td>
+                        <td>${escapeHtml(item.subs)}</td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -207,7 +222,7 @@
             if (currentScrapedData.length === 0) return;
             let textToCopy = "";
             
-            if(currentMode === 'status') {
+            if (currentMode === 'status') {
                 textToCopy = "Status\tURL\n";
                 currentScrapedData.forEach(item => {
                     textToCopy += `${item.status}\t${item.url}\n`;
