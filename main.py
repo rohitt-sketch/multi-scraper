@@ -12,14 +12,17 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 # ==========================================
-# TURSO DATABASE CONFIGURATION
+# TURSO DATABASE CONFIGURATION (SYNC CLIENT)
 # ==========================================
-# Apni keys yahan daalein (ya Render ke Environment Variables me daal dein)
-TURSO_URL = os.environ.get("TURSO_DATABASE_URL", "libsql://YOUR_DATABASE_URL_HERE")
-TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "YOUR_TOKEN_HERE")
+TURSO_URL = os.environ.get("TURSO_DATABASE_URL", "")
+TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
 
-# Turso client banayein
-client = libsql_client.create_client(url=TURSO_URL, auth_token=TURSO_TOKEN)
+# Turso URL ko https:// mein convert karein (Sync client ke liye zaroori hai)
+if TURSO_URL.startswith("libsql://"):
+    TURSO_URL = "https://" + TURSO_URL[len("libsql://"):]
+
+# Synchronous client banayein (Error fix)
+client = libsql_client.create_client_sync(url=TURSO_URL, auth_token=TURSO_TOKEN)
 
 SECRET_KEY = "my-super-secret-key-123"
 
@@ -37,7 +40,6 @@ def get_current_user(request: Request):
     expected_sig = hmac.new(SECRET_KEY.encode("utf-8"), email.encode("utf-8"), hashlib.sha256).hexdigest()
     
     if hmac.compare_digest(sig, expected_sig):
-        # Turso se user check karein
         res = client.execute("SELECT email, status, is_admin FROM users WHERE email = ?", [email])
         if res.rows:
             user = res.rows[0]
@@ -46,7 +48,6 @@ def get_current_user(request: Request):
     return None
 
 def init_db():
-    # Turso par table banayein
     client.execute("""CREATE TABLE IF NOT EXISTS users (
         email TEXT PRIMARY KEY, password TEXT, status TEXT DEFAULT 'pending', is_admin INTEGER DEFAULT 0
     )""")
@@ -74,7 +75,6 @@ async def register(email: str = Form(...), password: str = Form(...)):
         msg = quote("Registration successful! Please wait for admin approval.")
         return RedirectResponse(url=f"/?success={msg}", status_code=303)
     except Exception as e:
-        # Agar email pehle se hai toh error aayega
         msg = quote("This email is already registered!")
         return RedirectResponse(url=f"/?error={msg}", status_code=303)
 
@@ -117,7 +117,7 @@ async def admin_approvals(request: Request):
     if not user_info or not user_info["is_admin"]: return RedirectResponse(url="/dashboard", status_code=303)
     
     res = client.execute("SELECT email, status FROM users")
-    users = res.rows # List of tuples
+    users = res.rows 
     return templates.TemplateResponse(request=request, name="admin.html", context={"users": users})
 
 @app.post("/admin/approve")
