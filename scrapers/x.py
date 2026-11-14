@@ -19,12 +19,11 @@ def check_x_status(url):
         response = requests.get(api_url, headers=headers, timeout=10)
         data = response.json()
 
-        # Sirf API ke success code ko check karein
+        # Agar code 200 hai, matlab tweet active hai
         if data.get('code') == 200:
             tweet = data.get('tweet', {})
             author = tweet.get('author', {})
             
-            # Safe text extraction (agar text na ho toh default likh do)
             text = tweet.get('text', '')
             short_text = (text[:50] + "...") if len(text) > 50 else text
             if not short_text.strip():
@@ -41,12 +40,11 @@ def check_x_status(url):
                 "subs": "N/A"
             }
         else:
-            # Agar code 404 ya kuch aur hai, matlab tweet delete ho chuki hai ya private hai
+            # Agar code 404 hai, matlab tweet delete/private hai
             return {"status": "Dead / Private", "url": url, "title": "-", "author": "-", "likes": "-", "views": "-", "date": "-", "subs": "-"}
             
     except Exception as e:
-        # Agar network issue ho toh error dikhaye, par crash na ho
-        return {"status": f"Error", "url": url, "title": str(e)[:50], "author": "-", "likes": "-", "views": "-", "date": "-", "subs": "-"}
+        return {"status": "Error", "url": url, "title": str(e)[:50], "author": "-", "likes": "-", "views": "-", "date": "-", "subs": "-"}
 
 def scrape_data(urls_str):
     url_list = [u.strip() for u in urls_str.split('\n') if u.strip()]
