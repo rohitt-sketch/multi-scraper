@@ -20,6 +20,8 @@
             --color-okru: #ff8c00;
             --color-dailymotion: #0066ff;
             --color-vk: #0077ff;
+            --color-facebook: #1877F2;
+            --color-instagram: #E1306C;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
         
@@ -129,10 +131,7 @@
         }
         .dropdown-trigger:hover { border-color: var(--primary); box-shadow: 0 0 15px rgba(0, 242, 254, 0.2); }
         
-        /* The text inside the trigger */
-        #selectedPlatformText {
-            transition: color 0.3s ease, text-shadow 0.3s ease;
-        }
+        #selectedPlatformText { transition: color 0.3s ease, text-shadow 0.3s ease; }
 
         .dropdown-menu {
             display: none; position: absolute; top: 110%; left: 0; width: 100%;
@@ -140,6 +139,7 @@
             border: 1px solid var(--glass-border); border-radius: 12px;
             overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             animation: fadeIn 0.2s ease;
+            max-height: 300px; overflow-y: auto;
         }
         .dropdown-menu.open { display: block; }
         
@@ -148,24 +148,16 @@
         .dropdown-item {
             padding: 15px 20px; font-size: 15px; font-weight: 600; cursor: pointer;
             transition: all 0.2s; display: flex; align-items: center; gap: 10px;
-            border-left: 3px solid transparent;
+            border-left: 3px solid transparent; color: #fff;
         }
         
-        /* Individual Colors for Hover */
-        .dropdown-item[data-value="tiktok"] { color: #fff; }
         .dropdown-item[data-value="tiktok"]:hover { background: rgba(255, 0, 80, 0.15); border-left-color: var(--color-tiktok); color: var(--color-tiktok); }
-
-        .dropdown-item[data-value="youtube"] { color: #fff; }
         .dropdown-item[data-value="youtube"]:hover { background: rgba(255, 0, 0, 0.15); border-left-color: var(--color-youtube); color: var(--color-youtube); }
-
-        .dropdown-item[data-value="okru"] { color: #fff; }
         .dropdown-item[data-value="okru"]:hover { background: rgba(255, 140, 0, 0.15); border-left-color: var(--color-okru); color: var(--color-okru); }
-
-        .dropdown-item[data-value="dailymotion"] { color: #fff; }
         .dropdown-item[data-value="dailymotion"]:hover { background: rgba(0, 102, 255, 0.15); border-left-color: var(--color-dailymotion); color: var(--color-dailymotion); }
-
-        .dropdown-item[data-value="vk"] { color: #fff; }
         .dropdown-item[data-value="vk"]:hover { background: rgba(0, 119, 255, 0.15); border-left-color: var(--color-vk); color: var(--color-vk); }
+        .dropdown-item[data-value="facebook"]:hover { background: rgba(24, 119, 242, 0.15); border-left-color: var(--color-facebook); color: var(--color-facebook); }
+        .dropdown-item[data-value="instagram"]:hover { background: rgba(225, 48, 108, 0.15); border-left-color: var(--color-instagram); color: var(--color-instagram); }
 
         /* Buttons */
         .btn-action { 
@@ -277,16 +269,20 @@
                     <div class="dropdown-item" data-value="okru">OK.ru</div>
                     <div class="dropdown-item" data-value="dailymotion">Dailymotion</div>
                     <div class="dropdown-item" data-value="vk">VK.com</div>
+                    <div class="dropdown-item" data-value="facebook">Facebook</div>
+                    <div class="dropdown-item" data-value="instagram">Instagram</div>
                 </div>
             </div>
             
-            <!-- Hidden Native Select for JS compatibility -->
+            <!-- Hidden Native Select -->
             <select id="platformSelect" style="display:none;">
                 <option value="tiktok">TikTok</option>
                 <option value="youtube">YouTube</option>
                 <option value="okru">OK.ru</option>
                 <option value="dailymotion">Dailymotion</option>
                 <option value="vk">VK.com</option>
+                <option value="facebook">Facebook</option>
+                <option value="instagram">Instagram</option>
             </select>
 
             <button onclick="startScraping('status')" id="btnStatus" class="btn-action btn-status-check">⚡ Fast Status Check</button>
@@ -324,7 +320,9 @@
             youtube: { color: 'var(--color-youtube)', rgba: 'rgba(255, 0, 0, 0.3)' },
             okru: { color: 'var(--color-okru)', rgba: 'rgba(255, 140, 0, 0.3)' },
             dailymotion: { color: 'var(--color-dailymotion)', rgba: 'rgba(0, 102, 255, 0.3)' },
-            vk: { color: 'var(--color-vk)', rgba: 'rgba(0, 119, 255, 0.3)' }
+            vk: { color: 'var(--color-vk)', rgba: 'rgba(0, 119, 255, 0.3)' },
+            facebook: { color: 'var(--color-facebook)', rgba: 'rgba(24, 119, 242, 0.3)' },
+            instagram: { color: 'var(--color-instagram)', rgba: 'rgba(225, 48, 108, 0.3)' }
         };
 
         // Custom Dropdown Logic
@@ -351,16 +349,9 @@
                 const value = this.getAttribute('data-value');
                 const text = this.innerText;
                 
-                // Update Hidden Select (to keep backend logic working)
                 platformSelect.value = value;
-                
-                // Update Custom Trigger Text
                 selectedPlatformText.innerText = text;
-                
-                // Close Menu
                 dropdownMenu.classList.remove('open');
-
-                // Trigger existing change event logic
                 platformSelect.dispatchEvent(new Event('change'));
             });
         });
@@ -397,7 +388,7 @@
                 btnFull.style.background = 'linear-gradient(135deg, #ff0000, #cc0000)'; 
                 btnFull.style.boxShadow = '0 10px 20px rgba(255, 0, 0, 0.2)';
                 btnFull.style.color = '#fff';
-            } else if (platform === 'vk') {
+            } else if (platform === 'vk' || platform === 'facebook' || platform === 'instagram') {
                 btnStatus.style.display = 'flex'; 
                 btnFull.style.display = 'none';
             } else { 

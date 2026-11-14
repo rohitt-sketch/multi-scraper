@@ -6,24 +6,19 @@ import hashlib
 import hmac
 import os
 import libsql_client
-from scrapers import youtube, tiktok, okru, dailymotion, vk
+# Naye scrapers import karein
+from scrapers import youtube, tiktok, okru, dailymotion, vk, facebook, instagram
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-# ==========================================
-# TURSO DATABASE CONFIGURATION (SYNC CLIENT)
-# ==========================================
 TURSO_URL = os.environ.get("TURSO_DATABASE_URL", "")
 TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
 
-# Turso URL ko https:// mein convert karein (Sync client ke liye zaroori hai)
 if TURSO_URL.startswith("libsql://"):
     TURSO_URL = "https://" + TURSO_URL[len("libsql://"):]
 
-# Synchronous client banayein (Error fix)
 client = libsql_client.create_client_sync(url=TURSO_URL, auth_token=TURSO_TOKEN)
-
 SECRET_KEY = "my-super-secret-key-123"
 
 def hash_password(password: str) -> str:
@@ -51,10 +46,8 @@ def init_db():
     client.execute("""CREATE TABLE IF NOT EXISTS users (
         email TEXT PRIMARY KEY, password TEXT, status TEXT DEFAULT 'pending', is_admin INTEGER DEFAULT 0
     )""")
-    
     admin_email = 'joshiirohitt@gmail.com'
     admin_pass = 'WB@061329'
-    
     res = client.execute("SELECT * FROM users WHERE email = ?", [admin_email])
     if not res.rows:
         client.execute("INSERT INTO users (email, password, status, is_admin) VALUES (?, ?, ?, ?)", 
@@ -74,7 +67,7 @@ async def register(email: str = Form(...), password: str = Form(...)):
         client.execute("INSERT INTO users (email, password, status) VALUES (?, ?, 'pending')", [email, hash_password(password)])
         msg = quote("Registration successful! Please wait for admin approval.")
         return RedirectResponse(url=f"/?success={msg}", status_code=303)
-    except Exception as e:
+    except Exception:
         msg = quote("This email is already registered!")
         return RedirectResponse(url=f"/?error={msg}", status_code=303)
 
@@ -82,20 +75,16 @@ async def register(email: str = Form(...), password: str = Form(...)):
 async def login(email: str = Form(...), password: str = Form(...)):
     email = email.strip().lower()
     res = client.execute("SELECT password, status FROM users WHERE email = ?", [email])
-    
     if res.rows:
         user = res.rows[0]
         stored_password, status = user[0], user[1]
-        
         if stored_password == hash_password(password) or stored_password == password:
             if status == 'pending':
                 msg = quote("Your account is not approved yet. Please contact the admin.")
                 return RedirectResponse(url=f"/?error={msg}", status_code=303)
-            
             response = RedirectResponse(url="/dashboard", status_code=303)
             response.set_cookie(key="user_session", value=sign_session(email), httponly=True)
             return response
-            
     msg = quote("Invalid email or password!")
     return RedirectResponse(url=f"/?error={msg}", status_code=303)
 
@@ -115,21 +104,18 @@ async def logout():
 async def admin_approvals(request: Request):
     user_info = get_current_user(request)
     if not user_info or not user_info["is_admin"]: return RedirectResponse(url="/dashboard", status_code=303)
-    
     res = client.execute("SELECT email, status FROM users")
-    users = res.rows 
-    return templates.TemplateResponse(request=request, name="admin.html", context={"users": users})
+    return templates.TemplateResponse(request=request, name="admin.html", context={"users": res.rows})
 
 @app.post("/admin/approve")
 async def admin_approve(request: Request, target_email: str = Form(...)):
     user_info = get_current_user(request)
     if not user_info or not user_info["is_admin"]: return RedirectResponse(url="/dashboard", status_code=303)
-    
     client.execute("UPDATE users SET status = 'approved' WHERE email = ?", [target_email])
     return RedirectResponse(url="/admin/approvals", status_code=303)
 
 # ==========================================
-# SCRAPER ROUTES
+# SCRAPER ROUTES (Naye routes add kiye)
 # ==========================================
 @app.post("/scrape_youtube")
 def api_scrape_youtube(request: Request, urls: str = Form(...)):
@@ -161,6 +147,18 @@ def api_scrape_vk(request: Request, urls: str = Form(...)):
     try: return {"results": vk.check_status(urls)}
     except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
 
+@app.post("/scrape_facebook")
+def api_scrape_facebook(request: Request, urls: str = Form(...)):
+    if not get_current_user(request): return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    try: return {"results": facebook.scrape_data(urls)}
+    except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/scrape_instagram")
+def api_scrape_instagram(request: Request, urls: str = Form(...)):
+    if not get_current_user(request): return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    try: return {"results": instagram.scrape_data(urls)}
+    except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
+
 @app.post("/check_status")
 def api_check_status(request: Request, urls: str = Form(...), platform: str = Form("tiktok")):
     if not get_current_user(request): return JSONResponse({"error": "Unauthorized"}, status_code=401)
@@ -169,5 +167,7 @@ def api_check_status(request: Request, urls: str = Form(...), platform: str = Fo
         elif platform == "dailymotion": return {"results": dailymotion.check_status(urls)}
         elif platform == "youtube": return {"results": youtube.check_status(urls)}
         elif platform == "vk": return {"results": vk.check_status(urls)}
+        elif platform == "facebook": return {"results": facebook.check_status(urls)}
+        elif platform == "instagram": return {"results": instagram.check_status(urls)}
         else: return {"results": tiktok.check_status(urls)}
     except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
