@@ -8,123 +8,187 @@
         :root {
             --primary: #00f2fe;
             --secondary: #4facfe;
-            --bg-dark: #0a0a0f;
-            --glass-bg: rgba(20, 20, 30, 0.6);
+            --bg-dark: #050505;
+            --glass-bg: rgba(20, 20, 30, 0.4);
             --glass-border: rgba(255, 255, 255, 0.08);
+            --text-main: #ffffff;
+            --text-muted: #8b949e;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
         
         body { 
-            background: var(--bg-dark); color: #fff; padding: 40px; min-height: 100vh;
-            background-image: radial-gradient(circle at 15% 50%, rgba(0, 242, 254, 0.08), transparent 25%),
-                              radial-gradient(circle at 85% 30%, rgba(79, 172, 254, 0.08), transparent 25%);
+            background-color: var(--bg-dark); color: var(--text-main); 
+            min-height: 100vh; padding: 30px; overflow-x: hidden;
+        }
+
+        /* Animated Background Blobs */
+        .bg-blobs {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -1; overflow: hidden; background: #050505;
+        }
+        .blob {
+            position: absolute; filter: blur(100px); opacity: 0.4; border-radius: 50%;
+            animation: float 12s infinite alternate ease-in-out;
+        }
+        .blob-1 { width: 500px; height: 500px; background: #00f2fe; top: -10%; left: -10%; }
+        .blob-2 { width: 400px; height: 400px; background: #4facfe; bottom: -10%; right: -10%; animation-delay: -5s; }
+        .blob-3 { width: 300px; height: 300px; background: #00ff88; top: 40%; left: 40%; animation-delay: -2s; opacity: 0.2; }
+        
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(80px, 80px) scale(1.1); }
         }
 
         /* Header */
         .header { 
             display: flex; justify-content: space-between; align-items: center; 
             margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid var(--glass-border); 
+            background: rgba(5, 5, 5, 0.5); backdrop-filter: blur(10px);
+            position: sticky; top: 0; z-index: 100; padding: 15px 20px; border-radius: 12px;
         }
         h1 { 
-            font-size: 28px; font-weight: 800; letter-spacing: 1px;
+            font-size: 26px; font-weight: 800; letter-spacing: 1px;
             background: linear-gradient(90deg, #00f2fe, #4facfe);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            display: flex; align-items: center; gap: 10px;
         }
         .header-right { display: flex; align-items: center; gap: 20px; }
-        .user-email { color: #aaa; font-size: 14px; font-weight: 500; }
+        .user-email { 
+            color: var(--text-main); font-size: 14px; font-weight: 500; 
+            background: rgba(255,255,255,0.05); padding: 8px 15px; border-radius: 8px;
+            border: 1px solid var(--glass-border);
+        }
         
         .logout-btn { 
             color: #ff4a4a; text-decoration: none; font-size: 14px; font-weight: 600;
             border: 1px solid rgba(255, 74, 74, 0.3); padding: 8px 16px; border-radius: 8px; transition: 0.3s; 
         }
-        .logout-btn:hover { background: rgba(255, 74, 74, 0.1); box-shadow: 0 0 15px rgba(255, 74, 74, 0.2); }
+        .logout-btn:hover { background: rgba(255, 74, 74, 0.1); box-shadow: 0 0 15px rgba(255, 74, 74, 0.2); transform: translateY(-2px); }
 
         .admin-btn { 
             background: linear-gradient(135deg, #ffaa00, #ff8800); color: #000; 
             text-decoration: none; padding: 10px 20px; border-radius: 8px; 
-            font-weight: 800; font-size: 14px; transition: 0.3s; border: none; 
+            font-weight: 800; font-size: 14px; transition: 0.3s; border: none; box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
         }
-        .admin-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(255, 170, 0, 0.3); }
+        .admin-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(255, 170, 0, 0.5); }
 
-        /* Main Card */
+        /* Stats Grid */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px; margin-bottom: 30px;
+        }
+        .stat-card {
+            background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px;
+            display: flex; flex-direction: column; gap: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); transition: 0.3s;
+        }
+        .stat-card:hover { transform: translateY(-5px); border-color: rgba(0, 242, 254, 0.3); box-shadow: 0 15px 35px rgba(0, 242, 254, 0.1); }
+        .stat-title { font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+        .stat-value { font-size: 24px; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
+        .stat-value span { color: #00ff88; font-size: 14px; background: rgba(0, 255, 136, 0.1); padding: 2px 8px; border-radius: 20px; }
+
+        /* Main Workspace Card */
         .main-card { 
             background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border); padding: 40px; border-radius: 24px; 
+            border: 1px solid var(--glass-border); padding: 35px; border-radius: 24px; 
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            position: relative; overflow: hidden;
         }
+        .main-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, #00f2fe, transparent);
+            animation: scan 3s infinite linear;
+        }
+        @keyframes scan { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
+        .input-label { color: var(--text-main); margin-bottom: 15px; font-size: 16px; font-weight: 600; display: block; }
+        
         textarea { 
-            width: 100%; height: 150px; padding: 20px; font-size: 15px; 
-            background: rgba(0,0,0,0.4); color: #fff; border: 1px solid var(--glass-border); 
-            border-radius: 12px; resize: vertical; outline: none; transition: 0.3s;
+            width: 100%; height: 160px; padding: 20px; font-size: 15px; 
+            background: rgba(0,0,0,0.5); color: #00ff88; font-family: monospace;
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; 
+            resize: vertical; outline: none; transition: 0.3s;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
         }
-        textarea:focus { border-color: var(--primary); box-shadow: 0 0 20px rgba(0, 242, 254, 0.15); }
+        textarea:focus { border-color: var(--primary); box-shadow: 0 0 25px rgba(0, 242, 254, 0.2), inset 0 0 20px rgba(0,0,0,0.5); }
+        textarea::placeholder { color: #555; }
         
         .controls { display: flex; gap: 20px; margin-top: 25px; align-items: center; flex-wrap: wrap; }
         
         select { 
-            padding: 15px 20px; background: rgba(0,0,0,0.6); color: #fff; 
+            padding: 15px 25px; background: rgba(10,10,15,0.8); color: #fff; 
             border: 1px solid var(--glass-border); border-radius: 12px; font-size: 15px; 
-            outline: none; cursor: pointer; font-weight: 600;
+            outline: none; cursor: pointer; font-weight: 800; letter-spacing: 0.5px;
+            appearance: none; -webkit-appearance: none;
         }
-        select:focus { border-color: var(--primary); }
+        select:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(0, 242, 254, 0.2); }
 
         .btn-action { 
             padding: 15px 30px; border: none; border-radius: 12px; font-weight: 800; 
             font-size: 15px; cursor: pointer; transition: 0.3s; letter-spacing: 0.5px;
+            display: flex; align-items: center; gap: 8px; text-transform: uppercase;
         }
-        .btn-status-check { background: linear-gradient(135deg, #ffaa00, #ff8800); color: #000; }
-        .btn-status-check:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(255, 170, 0, 0.4); }
+        .btn-status-check { background: linear-gradient(135deg, #ffaa00, #ff8800); color: #000; box-shadow: 0 10px 20px rgba(255, 170, 0, 0.2); }
+        .btn-status-check:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(255, 170, 0, 0.4); }
         
-        .btn-full-scan { background: linear-gradient(135deg, #00f2fe, #4facfe); color: #000; }
-        .btn-full-scan:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0, 242, 254, 0.4); }
+        .btn-full-scan { background: linear-gradient(135deg, #00f2fe, #4facfe); color: #000; box-shadow: 0 10px 20px rgba(0, 242, 254, 0.2); }
+        .btn-full-scan:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(0, 242, 254, 0.4); }
         
         button:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
 
         /* Loader Animation */
-        .loader { display: none; color: var(--primary); font-weight: 600; margin-top: 25px; font-size: 15px; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        .loader { display: none; color: var(--primary); font-weight: 800; margin-top: 25px; font-size: 16px; animation: pulse 1.5s infinite; letter-spacing: 1px; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; text-shadow: 0 0 10px var(--primary); } 100% { opacity: 0.5; } }
 
         /* Copy Bar */
         .copy-bar { display: none; margin-top: 30px; margin-bottom: 15px; gap: 15px; }
         .btn-copy { 
             padding: 12px 25px; border: none; border-radius: 10px; font-weight: 800; 
             font-size: 14px; cursor: pointer; transition: 0.3s; color: #000; 
-            background: linear-gradient(135deg, #00ff88, #00cc66); 
+            background: linear-gradient(135deg, #00ff88, #00cc66); box-shadow: 0 10px 20px rgba(0, 255, 136, 0.2);
         }
-        .btn-copy:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0, 255, 136, 0.3); }
+        .btn-copy:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(0, 255, 136, 0.4); }
 
         /* Table */
         .table-container { 
-            max-height: 500px; overflow-y: auto; margin-top: 20px; 
-            border-radius: 16px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3);
+            max-height: 450px; overflow-y: auto; margin-top: 20px; 
+            border-radius: 16px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.4);
         }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { 
             background: rgba(10, 10, 15, 0.95); color: var(--primary); padding: 18px; 
             text-align: left; font-weight: 800; position: sticky; top: 0; z-index: 10; 
-            backdrop-filter: blur(10px); border-bottom: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px); border-bottom: 1px solid var(--glass-border); text-transform: uppercase; letter-spacing: 1px; font-size: 12px;
         }
         td { padding: 15px 18px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #ccc; }
-        tr:hover td { background: rgba(255,255,255,0.02); }
+        tr:hover td { background: rgba(0, 242, 254, 0.05); }
         
         .success { color: #00ff88; font-weight: 800; text-shadow: 0 0 10px rgba(0, 255, 136, 0.3); }
         .failed { color: #ff4a4a; font-weight: 800; text-shadow: 0 0 10px rgba(255, 74, 74, 0.3); }
         
         /* Scrollbar */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 242, 254, 0.3); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 242, 254, 0.6); }
 
         /* Footer */
-        .app-footer { text-align: center; margin-top: 50px; font-size: 14px; color: #666; letter-spacing: 1px; }
-        .app-footer span { color: var(--primary); font-weight: 800; text-shadow: 0 0 10px rgba(0, 242, 254, 0.3); }
+        .app-footer { text-align: center; margin-top: 50px; font-size: 14px; color: #666; letter-spacing: 1px; font-weight: 500; }
+        .app-footer span { color: var(--primary); font-weight: 800; text-shadow: 0 0 10px rgba(0, 242, 254, 0.4); }
     </style>
 </head>
 <body>
+
+    <!-- Animated Background -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
     <div class="header">
-        <h1>⚡ Premium Multi-Scraper</h1>
+        <h1><span>⚡</span> Premium Multi-Scraper</h1>
         <div class="header-right">
             {% if is_admin %}
                 <a href="/admin/approvals" class="admin-btn">👑 Admin Panel</a>
@@ -134,8 +198,24 @@
         </div>
     </div>
 
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-title">System Status</span>
+            <div class="stat-value">Online <span>Active</span></div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-title">Total Scrapes (Session)</span>
+            <div class="stat-value" id="totalScrapes">0</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-title">Selected Platform</span>
+            <div class="stat-value" id="activePlatformText" style="color: #00f2fe;">TikTok</div>
+        </div>
+    </div>
+
     <div class="main-card">
-        <p style="color: #aaa; margin-bottom: 20px; font-size: 15px; font-weight: 500;">Paste your video links below (One link per line):</p>
+        <label class="input-label">Paste your video links below (One link per line):</label>
         <textarea id="urlInput" placeholder="https://www.tiktok.com/...&#10;https://www.youtube.com/..."></textarea>
         
         <div class="controls">
@@ -173,6 +253,7 @@
     <script>
         let currentScrapedData = [];
         let currentMode = "";
+        let totalScrapesCount = 0;
 
         function escapeHtml(text) {
             if (text === null || text === undefined) return "-";
@@ -186,16 +267,19 @@
             const btnStatus = document.getElementById('btnStatus');
             const btnFull = document.getElementById('btnFull');
             
+            // Update Stats Card
+            document.getElementById('activePlatformText').innerText = platform.toUpperCase();
+            
             if (platform === 'youtube') { 
                 btnStatus.style.display = 'none'; 
-                btnFull.style.display = 'block';
+                btnFull.style.display = 'flex';
                 btnFull.innerHTML = '▶️ YouTube Full Scrape';
             } else if (platform === 'vk') {
-                btnStatus.style.display = 'block'; 
+                btnStatus.style.display = 'flex'; 
                 btnFull.style.display = 'none';
             } else { 
-                btnStatus.style.display = 'block'; 
-                btnFull.style.display = 'block';
+                btnStatus.style.display = 'flex'; 
+                btnFull.style.display = 'flex';
                 btnFull.innerHTML = `🔍 ${platform.charAt(0).toUpperCase() + platform.slice(1)} Full Scrape`;
             }
         }
@@ -239,6 +323,10 @@
                 currentScrapedData = data.results || [];
                 renderTable(mode, currentScrapedData);
                 
+                // Update Total Scrapes stat
+                totalScrapesCount += currentScrapedData.length;
+                document.getElementById('totalScrapes').innerText = totalScrapesCount;
+
                 document.getElementById('resultsArea').style.display = 'block';
                 document.getElementById('copyBar').style.display = 'flex';
 
