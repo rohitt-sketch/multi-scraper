@@ -1,11 +1,9 @@
 ﻿import json
 import unittest
 from unittest import mock
-
-import x_checker_v2 as x
+import x
 
 URL = "https://x.com/abc/status/1234567890123456789"
-
 
 class R:
     def __init__(self, status=200, body=None, text=None):
@@ -18,15 +16,11 @@ class R:
             raise ValueError("no json")
         return self._body
 
-
 OEMBED = {"html": "<blockquote>hello</blockquote>", "url": "https://twitter.com/abc/status/1", "author_name": "ABC"}
-SYND = {"__typename": "Tweet", "id_str": "1", "user": {"screen_name": "abc", "followers_count": 10},
-        "text": "hello", "favorite_count": 5, "created_at": "2026-01-01"}
-FX = {"code": 200, "status": {"text": "hello", "likes": 5, "views": 100, "created_at": "d",
-                              "author": {"screen_name": "abc", "followers": 10}}}
+SYND = {"__typename": "Tweet", "id_str": "1", "user": {"screen_name": "abc", "followers_count": 10}, "text": "hello", "favorite_count": 5, "created_at": "2026-01-01"}
+FX = {"code": 200, "status": {"text": "hello", "likes": 5, "views": 100, "created_at": "d", "author": {"screen_name": "abc", "followers": 10}}}
 VX = {"tweetID": "1", "text": "hello", "user_screen_name": "abc", "likes": 5}
 HTML_WALL = "<html><body>blocked</body></html>"
-
 
 def router(o, s, f, v):
     def fake_get(url, headers=None, **kw):
@@ -36,11 +30,9 @@ def router(o, s, f, v):
         raise AssertionError(url)
     return fake_get
 
-
 def run(o, s, f, v, **kw):
     with mock.patch.object(x, "_get", router(o, s, f, v)), mock.patch.object(x.time, "sleep"):
         return x.check_x_status(URL, **kw)
-
 
 class Tests(unittest.TestCase):
     def test_active_all(self):
@@ -91,15 +83,13 @@ class Tests(unittest.TestCase):
         self.assertEqual(x.check_x_status("")["status"], "Invalid URL")
 
     def test_url_variants(self):
-        for u in ("https://twitter.com/a/status/99", "x.com/i/web/status/99",
-                  "https://mobile.twitter.com/a/statuses/99?s=20", "https://fxtwitter.com/a/status/99"):
+        for u in ("https://twitter.com/a/status/99", "x.com/i/web/status/99", "https://mobile.twitter.com/a/statuses/99?s=20", "https://fxtwitter.com/a/status/99"):
             self.assertEqual(x.extract_tweet_id(u), "99", u)
 
     def test_scrape_order(self):
         with mock.patch.object(x, "check_x_status", side_effect=lambda u: {"status": "Active", "url": u}):
             out = x.scrape_data("a\n\nb\nc")
         self.assertEqual([r["url"] for r in out], ["a", "b", "c"])
-
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

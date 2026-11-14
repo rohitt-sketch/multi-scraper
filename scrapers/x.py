@@ -1,20 +1,6 @@
 ﻿"""
 X/Twitter status checker v2
-
 Rule: Dead sirf pakke saboot par. Shak ho to Error / Rate Limited (retry), Dead NAHI.
-
-  Primary   : oEmbed (publish.x.com) + Syndication (cdn.syndication.twimg.com)
-  Secondary : fxtwitter + vxtwitter (sirf confirm / metadata ke liye)
-
-  - Primary me se koi 1 Active            -> Active  (ek 404 flake ignore)
-  - Dono primary Dead (secondary na ulte) -> Dead / Private
-  - Sirf 1 primary Dead                   -> secondary se confirm ho tabhi Dead, warna Error
-  - Kuch clear nahi / network / 429       -> Error / Rate Limited (auto recheck 1 baar)
-
-Setup:  pip install requests
-Use:
-    from x_checker_v2 import check_x_status
-    print(check_x_status("https://x.com/user/status/123456789"))
 """
 from __future__ import annotations
 
@@ -37,16 +23,11 @@ ACTIVE, DEAD, UNKNOWN, RATE = "active", "dead", "unknown", "rate_limited"
 
 _local = threading.local()
 
-
 class Sig(NamedTuple):
-    state: str      # active | dead | unknown | rate_limited
-    data: dict      # parsed payload (sirf active me kaam ka)
-    info: str       # debug reason
+    state: str
+    data: dict
+    info: str
 
-
-# --------------------------------------------------------------------------- #
-# helpers
-# --------------------------------------------------------------------------- #
 def _session() -> requests.Session:
     if not hasattr(_local, "s"):
         s = requests.Session()
@@ -54,9 +35,7 @@ def _session() -> requests.Session:
         _local.s = s
     return _local.s
 
-
 def _get(url, headers=None, timeout=12, tries=3, backoff=1.0):
-    """Returns (response | None, error | None). 429/5xx/network par retry."""
     resp, err = None, None
     for i in range(tries):
         try:
@@ -69,9 +48,7 @@ def _get(url, headers=None, timeout=12, tries=3, backoff=1.0):
             time.sleep(backoff * (i + 1))
     return resp, err
 
-
 def _failure(resp, err, name) -> Optional[Sig]:
-    """Network / 429 / 5xx ko Unknown ya Rate me badalta hai. Normal response par None."""
     if resp is None:
         return Sig(UNKNOWN, {}, f"{name} net: {str(err)[:50]}")
     if resp.status_code == 429:
@@ -80,16 +57,13 @@ def _failure(resp, err, name) -> Optional[Sig]:
         return Sig(UNKNOWN, {}, f"{name} HTTP {resp.status_code}")
     return None
 
-
 def _http_dead(resp) -> bool:
-    """404/410 = dead. 401/403 = dead sirf jab HTML bot-wall na ho."""
     code = resp.status_code
     if code in (404, 410):
         return True
     if code in (401, 403):
         return "<html" not in (resp.text or "")[:500].lower()
     return False
-
 
 def _json(resp):
     try:
@@ -98,7 +72,6 @@ def _json(resp):
     except ValueError:
         return None
 
-
 _URL_RE = re.compile(
     r"^(?:https?://)?(?:www\.|mobile\.)?"
     r"(?:x|twitter|fxtwitter|fixupx|vxtwitter|pxtwitter)\.com/"
@@ -106,13 +79,11 @@ _URL_RE = re.compile(
     re.IGNORECASE,
 )
 
-
 def extract_tweet_id(url) -> Optional[str]:
     if not url or not isinstance(url, str):
         return None
     m = _URL_RE.match(url.strip())
     return m.group(1) if m else None
-
 
 def _get_token(tweet_id: str) -> str:
     chars = "0123456789abcdefghijklmnopqrstuvwxyz"
@@ -136,10 +107,6 @@ def _get_token(tweet_id: str) -> str:
                 break
     return (res + "".join(frac)).replace("0", "")
 
-
-# --------------------------------------------------------------------------- #
-# individual checkers
-# --------------------------------------------------------------------------- #
 def check_oembed(tid) -> Sig:
     target = quote(f"https://x.com/i/status/{tid}", safe="")
     resp, err = _get(f"https://publish.x.com/oembed?url={target}&omit_script=true")
@@ -154,7 +121,6 @@ def check_oembed(tid) -> Sig:
             return Sig(ACTIVE, d, "oembed 200")
         return Sig(UNKNOWN, {}, "oembed 200 but no html")
     return Sig(UNKNOWN, {}, f"oembed HTTP {resp.status_code}")
-
 
 def check_syndication(tid) -> Sig:
     url = (f"https://cdn.syndication.twimg.com/tweet-result"
@@ -182,7 +148,6 @@ def check_syndication(tid) -> Sig:
         return Sig(UNKNOWN, d, f"synd unknown typename {tn}")
     return Sig(UNKNOWN, {}, f"synd HTTP {resp.status_code}")
 
-
 def check_fx(tid) -> Sig:
     resp, err = _get(f"https://api.fxtwitter.com/2/status/{tid}",
                      headers={"User-Agent": "x-status-checker/2.0"})
@@ -199,7 +164,6 @@ def check_fx(tid) -> Sig:
     if code in (401, 403, 404, 410):
         return Sig(DEAD, {}, f"fx code {code}")
     return Sig(UNKNOWN, {}, f"fx code {code}")
-
 
 def check_vx(tid) -> Sig:
     resp, err = _get(f"https://api.vxtwitter.com/Twitter/status/{tid}",
@@ -219,10 +183,6 @@ def check_vx(tid) -> Sig:
         return Sig(DEAD, {}, f"vx code {d.get('code')}")
     return Sig(UNKNOWN, {}, "vx unclear")
 
-
-# --------------------------------------------------------------------------- #
-# decision
-# --------------------------------------------------------------------------- #
 def decide(o: Sig, s: Sig, f: Sig, v: Optional[Sig] = None):
     prim = (o.state, s.state)
     sec = tuple(x.state for x in (f, v) if x is not None)
@@ -245,20 +205,14 @@ def decide(o: Sig, s: Sig, f: Sig, v: Optional[Sig] = None):
             return "Dead / Private", "1 primary dead + secondary dead"
         return "Error", "1 primary dead, confirm nahi hua - recheck (Dead nahi)"
 
-    # primary ne kuch clear nahi bola
     if sa >= 1 and sd == 0:
         return "Active", "primary silent, secondary active"
     if RATE in prim + sec:
         return "Rate Limited", "rate limit - thoda ruk ke retry karo"
     return "Error", "sab unknown/conflict (network?) - Dead nahi, retry karo"
 
-
-# --------------------------------------------------------------------------- #
-# metadata
-# --------------------------------------------------------------------------- #
 def _data(sig: Optional[Sig]) -> dict:
     return sig.data if sig is not None and sig.state == ACTIVE else {}
-
 
 def _first(*vals, default=None):
     for x in vals:
@@ -266,10 +220,8 @@ def _first(*vals, default=None):
             return x
     return default
 
-
 def _fmt(x, default):
     return f"{x:,}" if isinstance(x, (int, float)) and not isinstance(x, bool) else default
-
 
 def _meta(o, s, f, v):
     od, sd_, fd, vd = _data(o), _data(s), _data(f), _data(v)
@@ -296,28 +248,22 @@ def _meta(o, s, f, v):
         "subs": _fmt(_first(fa.get("followers"), su.get("followers_count")), "N/A"),
     }
 
-
 def _result(status, url, title="-", **kw):
     base = {"status": status, "url": url, "title": title, "author": "-",
             "likes": "-", "views": "-", "date": "-", "subs": "-"}
     base.update(kw)
     return base
 
-
-# --------------------------------------------------------------------------- #
-# public API
-# --------------------------------------------------------------------------- #
 def _round(tid):
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
         fo, fs, ff = ex.submit(check_oembed, tid), ex.submit(check_syndication, tid), ex.submit(check_fx, tid)
         o, s, f = fo.result(), fs.result(), ff.result()
     verdict, reason = decide(o, s, f)
     v = None
-    if verdict in ("Error", "Rate Limited"):      # tie-breaker, sirf zarurat par
+    if verdict in ("Error", "Rate Limited"): 
         v = check_vx(tid)
         verdict, reason = decide(o, s, f, v)
     return verdict, reason, (o, s, f, v)
-
 
 def check_x_status(url, debug=False, recheck=True):
     url = (url or "").strip()
@@ -337,14 +283,13 @@ def check_x_status(url, debug=False, recheck=True):
                 break
             if attempt < attempts - 1:
                 time.sleep(2 * (attempt + 1))
-    except Exception as e:  # koi bhi surprise Dead nahi banega
+    except Exception as e: 
         return _result("Error", url, f"internal: {str(e)[:60]}")
 
     if verdict == "Active":
         return _result("Active", url, **_meta(*sigs))
     title = reason if verdict in ("Rate Limited", "Error") else "-"
     return _result(verdict, url, title)
-
 
 def scrape_data(urls_str, max_workers=5):
     urls = [u.strip() for u in (urls_str or "").splitlines() if u.strip()]
@@ -353,12 +298,5 @@ def scrape_data(urls_str, max_workers=5):
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
         return list(ex.map(check_x_status, urls))
 
-
 def check_status(urls_str):
     return [{"status": r["status"], "url": r["url"]} for r in scrape_data(urls_str)]
-
-
-if __name__ == "__main__":
-    r = check_x_status("https://x.com/Goodwatchin/status/2121610324717588488", debug=True)
-    print(r)
-    print("STATUS:", r["status"])
