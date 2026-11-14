@@ -6,8 +6,7 @@ import hashlib
 import hmac
 import os
 import libsql_client
-# Naye scrapers import karein
-from scrapers import youtube, tiktok, okru, dailymotion, vk, facebook, instagram
+from scrapers import youtube, tiktok, okru, dailymotion, vk, facebook, instagram, x
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -115,7 +114,7 @@ async def admin_approve(request: Request, target_email: str = Form(...)):
     return RedirectResponse(url="/admin/approvals", status_code=303)
 
 # ==========================================
-# SCRAPER ROUTES (Naye routes add kiye)
+# SCRAPER ROUTES
 # ==========================================
 @app.post("/scrape_youtube")
 def api_scrape_youtube(request: Request, urls: str = Form(...)):
@@ -159,6 +158,12 @@ def api_scrape_instagram(request: Request, urls: str = Form(...)):
     try: return {"results": instagram.scrape_data(urls)}
     except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
 
+@app.post("/scrape_x")
+def api_scrape_x(request: Request, urls: str = Form(...)):
+    if not get_current_user(request): return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    try: return {"results": x.scrape_data(urls)}
+    except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
+
 @app.post("/check_status")
 def api_check_status(request: Request, urls: str = Form(...), platform: str = Form("tiktok")):
     if not get_current_user(request): return JSONResponse({"error": "Unauthorized"}, status_code=401)
@@ -169,5 +174,6 @@ def api_check_status(request: Request, urls: str = Form(...), platform: str = Fo
         elif platform == "vk": return {"results": vk.check_status(urls)}
         elif platform == "facebook": return {"results": facebook.check_status(urls)}
         elif platform == "instagram": return {"results": instagram.check_status(urls)}
+        elif platform == "x": return {"results": x.check_status(urls)}
         else: return {"results": tiktok.check_status(urls)}
     except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
