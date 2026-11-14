@@ -1,108 +1,61 @@
-import requests
+﻿import requests
 import concurrent.futures
 from datetime import datetime
 
-# Number format karne ke liye (e.g. 1,000,000)
 def format_number(num):
+    try: return f"{int(num):,}"
+    except: return "0"
+
+def format_duration(sec):
     try:
-        return f"{int(num):,}"
-    except (ValueError, TypeError):
-        return "0"
+        sec = int(sec)
+        h = sec // 3600; m = (sec % 3600) // 60; s = sec % 60
+        return f"{h:02d}:{m:02d}:{s:02d}"
+    except: return "-"
 
-# Date format karne ke liye (YYYY-MM-DD)
-def format_date(timestamp):
-    try:
-        if timestamp:
-            dt = datetime.fromtimestamp(timestamp)
-            return dt.strftime('%Y-%m-%d')
-        return "-"
-    except:
-        return "-"
-
-# Duration format karne ke liye (MM:SS)
-def format_duration(seconds):
-    try:
-        seconds = int(seconds)
-        m = seconds // 60
-        s = seconds % 60
-        return f"{m:02d}:{s:02d}"
-    except:
-        return "-"
-
-# Error aane par default result
-def get_error_result(url, status="Dead / Error"):
-    return {
-        "status": status,
-        "url": url,
-        "title": "Not Found or Invalid",
-        "author": "-",
-        "views": "0",
-        "likes": "-",
-        "duration": "-",
-        "date": "-",
-        "subs": "-"
-    }
-
-# Ek single URL ko scrape karne ka function
 def fetch_tiktok_data(url):
-    api_url = f'https://www.tikwm.com/api/?url={url}'
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-    }
-    
+    clean_url = url.split('?')[0]
     try:
-        response = requests.get(api_url, headers=headers, timeout=10)
-        json_data = response.json()
-        
-        # Check karein ki data valid hai ya nahi
-        if json_data and json_data.get('data') and json_data['data'].get('title'):
-            d = json_data['data']
-            author_name = d.get('author', {}).get('nickname') or d.get('author', {}).get('unique_id') or '-'
-            
+        api_url = f'https://www.tikwm.com/api/?url={clean_url}'
+        res = requests.get(api_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10).json()
+        if res and res.get('data') and res['data'].get('id'):
+            d = res['data']
+            username = d.get('author', {}).get('unique_id', '')
+            date_str = datetime.fromtimestamp(d['create_time']).strftime('%Y-%m-%d') if d.get('create_time') else "-"
+            subs = "0"
+            if username:
+                try:
+                    u_res = requests.get(f'https://www.tikwm.com/api/user/info?unique_id={username}', timeout=5).json()
+                    if u_res.get('data') and u_res['data'].get('stats'):
+                        subs = format_number(u_res['data']['stats'].get('followerCount', 0))
+                except: pass
             return {
-                "status": "Active",
-                "url": url,
-                "title": d.get('title', ''),
-                "author": author_name,
-                "views": format_number(d.get('play_count', 0)),
-                "likes": format_number(d.get('digg_count', 0)),
-                "duration": format_duration(d.get('duration', 0)),
-                "date": format_date(d.get('create_time')),
-                "subs": "N/A"
+                "status": "Active", "url": url, "title": d.get('title', ''), 
+                "author": d.get('author', {}).get('nickname', username), 
+                "views": format_number(d.get('play_count', 0)), "likes": format_number(d.get('digg_count', 0)), 
+                "duration": format_duration(d.get('duration', 0)), "date": date_str, "subs": subs
             }
-        else:
-            return get_error_result(url, "Dead / Error")
-            
-    except Exception as e:
-        return get_error_result(url, "Dead / Error")
+    except: pass 
 
-# Full Scrape Function (Frontend 'Full Scrape' button isko call karega)
+    try:
+        o_url = f'https://www.tiktok.com/oembed?url={clean_url}'
+        o_res = requests.get(o_url, timeout=10).json()
+        if o_res and o_res.get('title'):
+            username = o_res.get('author_url', '').split('@')[-1] if o_res.get('author_url') else "-"
+            return {
+                "status": "Active", "url": url, "title": o_res.get('title'), 
+                "author": o_res.get('author_name', username), 
+                "views": "0", "likes": "0", "duration": "-", "date": "-", "subs": "0"
+            }
+    except: pass
+
+    return {"status": "Dead/Error", "url": url, "title": "Video Unavailable", "author": "-", "views": "0", "likes": "0", "duration": "-", "date": "-", "subs": "-"}
+
 def scrape_data(urls_str):
     url_list = [u.strip() for u in urls_str.split('\n') if u.strip()]
-    if not url_list:
-        return []
-
-    # Multithreading use kar rahe hain taaki multiple links jaldi process hon
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        results = list(executor.map(fetch_tiktok_data, url_list))
-    
-    return results
+        return list(executor.map(fetch_tiktok_data, url_list))
 
-# Fast Status Check Function (Frontend 'Fast Status Check' button isko call karega)
 def check_status(urls_str):
-    url_list = [u.strip() for u in urls_str.split('\n') if u.strip()]
-    if not url_list:
-        return []
-
-    results = []
-    # Status check ke liye zyada workers use kar sakte hain
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        data_list = list(executor.map(fetch_tiktok_data, url_list))
-        
-        for item in data_list:
-            # Frontend ko sirf status aur url chahiye is mode me
-            results.append({
-                "status": item["status"],
-                "url": item["url"]
-            })
-    return results
+    results = scrape_data(urls_str)
+    return [{"status": r["status"], "url": r["url"]} for r in results]
