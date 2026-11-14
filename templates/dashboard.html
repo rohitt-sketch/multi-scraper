@@ -316,13 +316,14 @@
         </div>
     </div>
 
-    <!-- TELEGRAM JSON PARSER SECTION -->
+    <!-- TELEGRAM JSON PARSER SECTION (SIRF ADMIN KE LIYE) -->
+    {% if is_admin %}
     <div class="main-card">
         <h2 style="color: var(--primary); font-size: 20px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-            <span>📁</span> JSON / Telegram Data Extractor
+            <span>📁</span> Admin Tool: JSON / Telegram Data Extractor
         </h2>
         <p style="color: #888; font-size: 14px; margin-bottom: 20px;">
-            Upload a Telegram JSON export file to extract data into a table and download as CSV (Excel).
+            Upload a Telegram JSON export file to extract data into a table and download as CSV (Excel). <span style="color:#ffaa00;">(Only visible to Admin)</span>
         </p>
         
         <div class="json-upload-area">
@@ -342,6 +343,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <div class="app-footer">
         Designed & Developed by <span>Rohit Joshi</span>

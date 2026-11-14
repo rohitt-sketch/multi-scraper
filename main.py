@@ -182,7 +182,7 @@ def api_check_status(request: Request, urls: str = Form(...), platform: str = Fo
     except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
 
 # ==========================================
-# TELEGRAM JSON PARSER ROUTES
+# TELEGRAM JSON PARSER ROUTES (ADMIN ONLY)
 # ==========================================
 def _extract_tg_text(msg):
     text = msg.get("text", "")
@@ -235,7 +235,10 @@ def _parse_tg_json(file_contents):
 
 @app.post("/api/parse_telegram")
 async def parse_telegram(request: Request, file: UploadFile = File(...)):
-    if not get_current_user(request): return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    user_info = get_current_user(request)
+    if not user_info: return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    # Admin Check
+    if not user_info["is_admin"]: return JSONResponse({"error": "Access Denied: Admin Only"}, status_code=403)
     
     contents = await file.read()
     try:
@@ -252,7 +255,10 @@ async def parse_telegram(request: Request, file: UploadFile = File(...)):
 
 @app.post("/api/download_telegram_csv")
 async def download_telegram_csv(request: Request, file: UploadFile = File(...)):
-    if not get_current_user(request): return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    user_info = get_current_user(request)
+    if not user_info: return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    # Admin Check
+    if not user_info["is_admin"]: return JSONResponse({"error": "Access Denied: Admin Only"}, status_code=403)
     
     contents = await file.read()
     try:
