@@ -1,4 +1,5 @@
-﻿import requests
+﻿@'
+import requests
 import re
 import concurrent.futures
 
@@ -22,6 +23,22 @@ def check_x_status(url):
         if data.get('code') == 200:
             tweet = data.get('tweet', {})
             author = tweet.get('author', {})
+            
+            # Check karein ki media (photo/video) available hai ya nahi
+            media_data = tweet.get('media', {})
+            media_list = media_data.get('all', []) if media_data else []
+            
+            # Agar media list khali hai, matlab video/photo disabled hai (copyright ya deletion)
+            if not media_list:
+                return {
+                    "status": "Dead / Media Disabled", 
+                    "url": url, 
+                    "title": "Media not available", 
+                    "author": author.get('screen_name', 'Unknown'),
+                    "likes": "-", "views": "-", "date": "-", "subs": "-"
+                }
+
+            # Agar media maujood hai toh Active
             return {
                 "status": "Active",
                 "url": url,
@@ -46,3 +63,4 @@ def scrape_data(urls_str):
 def check_status(urls_str):
     results = scrape_data(urls_str)
     return [{"status": r["status"], "url": r["url"]} for r in results]
+'@ | Set-Content -Path "scrapers\x.py" -Encoding UTF8
