@@ -19,29 +19,21 @@ def check_x_status(url):
         response = requests.get(api_url, headers=headers, timeout=10)
         data = response.json()
 
+        # Sirf API ke success code ko check karein
         if data.get('code') == 200:
             tweet = data.get('tweet', {})
             author = tweet.get('author', {})
             
-            # Check karein ki media (photo/video) available hai ya nahi
-            media_data = tweet.get('media', {})
-            media_list = media_data.get('all', []) if media_data else []
-            
-            # Agar media list khali hai, matlab video/photo disabled hai (copyright ya deletion)
-            if not media_list:
-                return {
-                    "status": "Dead / Media Disabled", 
-                    "url": url, 
-                    "title": "Media not available", 
-                    "author": author.get('screen_name', 'Unknown'),
-                    "likes": "-", "views": "-", "date": "-", "subs": "-"
-                }
+            # Safe text extraction (agar text na ho toh default likh do)
+            text = tweet.get('text', '')
+            short_text = (text[:50] + "...") if len(text) > 50 else text
+            if not short_text.strip():
+                short_text = "No text content"
 
-            # Agar media maujood hai toh Active
             return {
                 "status": "Active",
                 "url": url,
-                "title": tweet.get('text', '')[:100],
+                "title": short_text,
                 "author": author.get('screen_name', 'Unknown'),
                 "likes": f"{tweet.get('likes', 0):,}",
                 "views": f"{tweet.get('views', 0):,}",
@@ -49,9 +41,11 @@ def check_x_status(url):
                 "subs": "N/A"
             }
         else:
+            # Agar code 404 ya kuch aur hai, matlab tweet delete ho chuki hai ya private hai
             return {"status": "Dead / Private", "url": url, "title": "-", "author": "-", "likes": "-", "views": "-", "date": "-", "subs": "-"}
             
     except Exception as e:
+        # Agar network issue ho toh error dikhaye, par crash na ho
         return {"status": f"Error", "url": url, "title": str(e)[:50], "author": "-", "likes": "-", "views": "-", "date": "-", "subs": "-"}
 
 def scrape_data(urls_str):
