@@ -2,6 +2,7 @@
 import re
 import threading
 import concurrent.futures
+from decimal import Decimal, getcontext
 from urllib.parse import quote
 import requests
 
@@ -48,8 +49,14 @@ def extract_tweet_id(url):
     return tweet_id
 
 def _get_syndication_token(tweet_id):
+    # float(tweet_id) 19-digit ID me precision kho deta hai,
+    # isliye Decimal se exact token banate hain.
+    getcontext().prec = 40
     chars = "0123456789abcdefghijklmnopqrstuvwxyz"
-    num = (float(tweet_id) / 1e15) * math.pi
+    try:
+        num = (Decimal(str(tweet_id)) / (Decimal(10) ** 15)) * Decimal(str(math.pi))
+    except Exception:
+        num = (Decimal(int(tweet_id)) / (Decimal(10) ** 15)) * Decimal(str(math.pi))
     int_part = int(num)
     frac_part = num - int_part
 
@@ -134,23 +141,32 @@ def _check_syndication_live(session, tweet_id):
         return "unknown", {}, str(e)[:40]
 
 def _fetch_fxtwitter_details(session, tweet_id):
-    """FxTwitter se views, likes, followers aur status code check karta hai."""
+    """FxTwitter se views, likes, followers. Sirf metadata ke liye — live/dead ka faisla X endpoints karenge."""
     api_url = f"https://api.fxtwitter.com/2/status/{tweet_id}"
     try:
         resp = session.get(api_url, headers={"User-Agent": "MyMultiScraper/1.0"}, timeout=10)
-        if resp.status_code in (401, 403, 404, 410):
-            return "dead", {}, f"HTTP {resp.status_code}"
-        data = resp.json()
+        # HTML (Cloudflare) aaye to JSON parse fail hoga -> unknown, dead NAHI
+        try:
+            data = resp.json()
+        except ValueError:
+            if resp.status_code in (401, 403, 404, 410):
+                return "dead", {}, f"HTTP {resp.status_code}", {}
+            return "unknown", {}, f"HTTP {resp.status_code} non-JSON", {}
+        if not isinstance(data, dict):
+            return "unknown", {}, "Invalid payload", {}
         code = data.get("code", resp.status_code)
         if code in (401, 403, 404, 410):
-            return "dead", {}, f"API Code {code}"
-        if code == 200:
+            return "dead", {}, f"API Code {code}", {}
+        if code == 200 or resp.status_code == 200:
             tweet = data.get("status") or data.get("tweet") or {}
+            author_top = data.get("author") or {}
             if tweet:
-                return "active", tweet, "Code 200"
-        return "unknown", {}, f"Code {code}"
+                return "active", tweet, "Code 200", author_top
+        return "unknown", {}, f"Code {code}", {}
+    except requests.exceptions.RequestException as e:
+        return "unknown", {}, str(e)[:40], {}
     except Exception as e:
-        return "unknown", {}, str(e)[:40]
+        return "unknown", {}, str(e)[:40], {}
 
 def check_x_status(url, debug=False):
     url = url.strip()
@@ -159,66 +175,75 @@ def check_x_status(url, debug=False):
         return _empty_result("Invalid URL", url)
 
     session = _get_session()
-    canonical_url = (
-        f"https://x.com/{url_username}/status/{tweet_id}"
-        if url_username
-        else f"https://x.com/i/web/status/{tweet_id}"
-    )
+    # /i/web/status oEmbed par 404 deta hai, isliye usko /i/status me normalize karo
+    if not url_username or url_username == "i/web":
+        canonical_url = f"https://x.com/i/status/{tweet_id}"
+    else:
+        canonical_url = f"https://x.com/{url_username}/status/{tweet_id}"
 
-    # 1. oEmbed Live Check
+    # Dono official X endpoints hamesha check karo (early-return NAHI —
+    # wahi sabse bada false-Dead bug tha)
     oembed_state, oembed_data, oembed_info = _check_oembed_live(session, canonical_url)
-    if oembed_state == "dead" and not debug:
-        return _empty_result("Dead / Private", url)
-
-    # 2. Syndication Live Check
     synd_state, synd_data, synd_info = _check_syndication_live(session, tweet_id)
-    if synd_state == "dead" and not debug:
-        return _empty_result("Dead / Private", url)
-
-    # 3. FxTwitter Details Check
-    fx_state, fx_tweet, fx_info = _fetch_fxtwitter_details(session, tweet_id)
+    fx_state, fx_tweet, fx_info, fx_author_top = _fetch_fxtwitter_details(session, tweet_id)
 
     if debug:
         print(f"[DEBUG] {url}\n  oEmbed={oembed_state} ({oembed_info}) | Synd={synd_state} ({synd_info}) | Fx={fx_state} ({fx_info})")
 
-    # STRICT RULE: Agar koi bhi endpoint tweet ko dead bole -> Dead / Private
-    if oembed_state == "dead" or synd_state == "dead" or fx_state == "dead":
-        return _empty_result("Dead / Private", url)
+    # --- DECISION: sirf official X endpoints faisla karenge ---
+    # FxTwitter third-party hai, wo kabhi-kabhi live tweet par bhi 404 deta hai,
+    # isliye uska "dead" akele tweet ko Dead NAHI karega.
+    x_states = (oembed_state, synd_state)
 
-    # Kam se kam ek X live endpoint (oEmbed ya Syndication) ka Active hona zaroori hai
-    if oembed_state != "active" and synd_state != "active":
-        if "rate_limited" in (oembed_state, synd_state):
-            return _empty_result("Rate Limited", url, "X rate limited live check")
+    if oembed_state == "active" or synd_state == "active":
+        pass  # Active — neeche metadata banao
+    elif oembed_state == "dead" and synd_state == "dead":
+        return _empty_result("Dead / Private", url)
+    elif "dead" in x_states and "unknown" in x_states:
+        # Ek official dead, dusra network fail — dead hi maano (conservative),
+        # lekin Fx ke dead ko yahan count mat karo.
+        return _empty_result("Dead / Private", url)
+    elif "rate_limited" in x_states:
+        return _empty_result("Rate Limited", url, "X rate limited live check")
+    else:
         return _empty_result("Error", url, "Could not verify live status")
 
-    fx_author = fx_tweet.get("author") or {}
+    # NOTE: purana handle-mismatch profile check hata diya.
+    # X username ko ignore karta hai (tweet ID global hota hai) aur oEmbed
+    # khud canonical author/url bata deta hai, isliye wo check false-Dead de raha tha.
+
+    fx_author = (fx_tweet.get("author") if isinstance(fx_tweet, dict) else {}) or fx_author_top or {}
     synd_user = synd_data.get("user") or {}
+
+    # oEmbed canonical URL se sahi author bhi nikal lo (username galat ho tab bhi)
+    oembed_author = (oembed_data.get("author_name") or "").strip()
+    oembed_url = oembed_data.get("url") or ""
+    m = re.search(r"(?:x|twitter)\.com/([^/?#]+)/status", oembed_url)
+    oembed_canonical_user = m.group(1) if m else ""
 
     actual_author = (
         fx_author.get("screen_name")
         or synd_user.get("screen_name")
+        or oembed_canonical_user
+        or oembed_author
         or ""
     )
 
-    # Agar URL me diya gaya username aur tweet ka asli author alag ho, toh check karein ki URL wala account zinda hai ya nahi
-    if url_username and actual_author and url_username.lower() != actual_author.lower():
-        prof_state, _, prof_info = _check_oembed_live(session, f"https://x.com/{url_username}")
-        if debug:
-            print(f"  [DEBUG] Handle mismatch ({url_username} != {actual_author}), profile check={prof_state} ({prof_info})")
-        if prof_state == "dead":
-            return _empty_result("Dead / Private", url)
-
-    raw_text = fx_tweet.get("text") or synd_data.get("text") or ""
+    raw_text = ""
+    if isinstance(fx_tweet, dict):
+        raw_text = fx_tweet.get("text") or ""
+    if not raw_text:
+        raw_text = synd_data.get("text") or ""
     clean_text = " ".join(raw_text.split())
     short_text = (clean_text[:50] + "...") if len(clean_text) > 50 else clean_text
     if not short_text:
         short_text = "No text content"
 
-    author_display = actual_author or oembed_data.get("author_name") or "Unknown"
-    likes = fx_tweet.get("likes") if fx_tweet.get("likes") is not None else synd_data.get("favorite_count")
-    views = fx_tweet.get("views")
-    followers = fx_author.get("followers") if fx_author.get("followers") is not None else synd_user.get("followers_count")
-    created_at = fx_tweet.get("created_at") or synd_data.get("created_at") or "-"
+    author_display = actual_author or "Unknown"
+    likes = (fx_tweet.get("likes") if isinstance(fx_tweet, dict) and fx_tweet.get("likes") is not None else synd_data.get("favorite_count"))
+    views = fx_tweet.get("views") if isinstance(fx_tweet, dict) else None
+    followers = (fx_author.get("followers") if fx_author.get("followers") is not None else synd_user.get("followers_count"))
+    created_at = (fx_tweet.get("created_at") if isinstance(fx_tweet, dict) else None) or synd_data.get("created_at") or "-"
 
     return {
         "status": "Active",
