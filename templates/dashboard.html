@@ -102,6 +102,17 @@
         }
         @keyframes scan { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
+        /* Smart Limit Notification Banner */
+        .limit-banner {
+            display: flex; align-items: center; gap: 12px;
+            background: rgba(255, 170, 0, 0.1); border-left: 4px solid #ffaa00;
+            padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;
+            font-size: 14px; color: #ffd580; font-weight: 500;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        .limit-banner i { font-style: normal; font-size: 18px; }
+
         .input-label { color: var(--text-main); margin-bottom: 15px; font-size: 16px; font-weight: 600; display: block; }
         
         textarea { 
@@ -215,6 +226,12 @@
     </div>
 
     <div class="main-card">
+        
+        <!-- Smart Notification Banner -->
+        <div id="limitBanner" class="limit-banner">
+            <i>💡</i> <span id="bannerText">System Safe Limit: Please check max 30-40 links at a time to avoid temporary API blocks.</span>
+        </div>
+
         <label class="input-label">Paste your video links below (One link per line):</label>
         <textarea id="urlInput" placeholder="https://www.tiktok.com/...&#10;https://www.youtube.com/..."></textarea>
         
@@ -255,6 +272,15 @@
         let currentMode = "";
         let totalScrapesCount = 0;
 
+        // Platform specific messages dictionary
+        const platformLimits = {
+            tiktok: "System Safe Limit: Max 30-40 links. Exceeding this may cause temporary API blocks.",
+            youtube: "System Safe Limit: Max 8,000 links per day (API Quota). Please process in small batches of 50.",
+            okru: "System Safe Limit: Max 40-50 links. High volume may trigger IP restrictions.",
+            dailymotion: "System Safe Limit: Max 40-50 links. Process in small batches for fastest results.",
+            vk: "System Safe Limit: Max 10 links at a time. Our system adds a safety delay; exceeding this will cause IP blocks."
+        };
+
         function escapeHtml(text) {
             if (text === null || text === undefined) return "-";
             const div = document.createElement('div');
@@ -270,6 +296,26 @@
             // Update Stats Card
             document.getElementById('activePlatformText').innerText = platform.toUpperCase();
             
+            // Update Limit Notification Banner
+            const banner = document.getElementById('limitBanner');
+            const bannerText = document.getElementById('bannerText');
+            
+            if(platformLimits[platform]) {
+                bannerText.innerText = platformLimits[platform];
+                banner.style.display = 'flex';
+                // VK ke liye thoda red warning color aur baaki ke liye yellow
+                if(platform === 'vk') {
+                    banner.style.background = 'rgba(255, 74, 74, 0.1)';
+                    banner.style.borderLeftColor = '#ff4a4a';
+                    banner.style.color = '#ffb3b3';
+                } else {
+                    banner.style.background = 'rgba(255, 170, 0, 0.1)';
+                    banner.style.borderLeftColor = '#ffaa00';
+                    banner.style.color = '#ffd580';
+                }
+            }
+
+            // UI Buttons Logic
             if (platform === 'youtube') { 
                 btnStatus.style.display = 'none'; 
                 btnFull.style.display = 'flex';
