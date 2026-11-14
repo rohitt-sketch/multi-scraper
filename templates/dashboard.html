@@ -13,6 +13,13 @@
             --glass-border: rgba(255, 255, 255, 0.08);
             --text-main: #ffffff;
             --text-muted: #8b949e;
+            
+            /* Brand Colors */
+            --color-youtube: #ff0000;
+            --color-tiktok: #ff0050;
+            --color-okru: #ff8c00;
+            --color-dailymotion: #0066ff;
+            --color-vk: #0077ff;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
         
@@ -93,26 +100,9 @@
             background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border); padding: 35px; border-radius: 24px; 
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-            position: relative; overflow: hidden;
+            position: relative; overflow: visible;
         }
-        .main-card::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
-            background: linear-gradient(90deg, transparent, #00f2fe, transparent);
-            animation: scan 3s infinite linear;
-        }
-        @keyframes scan { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-
-        /* Smart Limit Notification Banner */
-        .limit-banner {
-            display: flex; align-items: center; gap: 12px;
-            background: rgba(255, 170, 0, 0.1); border-left: 4px solid #ffaa00;
-            padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;
-            font-size: 14px; color: #ffd580; font-weight: 500;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-        }
-        .limit-banner i { font-style: normal; font-size: 18px; }
-
+        
         .input-label { color: var(--text-main); margin-bottom: 15px; font-size: 16px; font-weight: 600; display: block; }
         
         textarea { 
@@ -126,15 +116,58 @@
         textarea::placeholder { color: #555; }
         
         .controls { display: flex; gap: 20px; margin-top: 25px; align-items: center; flex-wrap: wrap; }
+
+        /* Custom Dropdown Styles */
+        .custom-dropdown { position: relative; user-select: none; min-width: 180px; z-index: 50;}
         
-        select { 
+        .dropdown-trigger { 
             padding: 15px 25px; background: rgba(10,10,15,0.8); color: #fff; 
             border: 1px solid var(--glass-border); border-radius: 12px; font-size: 15px; 
-            outline: none; cursor: pointer; font-weight: 800; letter-spacing: 0.5px;
-            appearance: none; -webkit-appearance: none;
+            cursor: pointer; font-weight: 800; letter-spacing: 0.5px;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: all 0.3s ease;
         }
-        select:focus { border-color: var(--primary); box-shadow: 0 0 15px rgba(0, 242, 254, 0.2); }
+        .dropdown-trigger:hover { border-color: var(--primary); box-shadow: 0 0 15px rgba(0, 242, 254, 0.2); }
+        
+        /* The text inside the trigger */
+        #selectedPlatformText {
+            transition: color 0.3s ease, text-shadow 0.3s ease;
+        }
 
+        .dropdown-menu {
+            display: none; position: absolute; top: 110%; left: 0; width: 100%;
+            background: rgba(15, 15, 25, 0.95); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 12px;
+            overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            animation: fadeIn 0.2s ease;
+        }
+        .dropdown-menu.open { display: block; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .dropdown-item {
+            padding: 15px 20px; font-size: 15px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s; display: flex; align-items: center; gap: 10px;
+            border-left: 3px solid transparent;
+        }
+        
+        /* Individual Colors for Hover */
+        .dropdown-item[data-value="tiktok"] { color: #fff; }
+        .dropdown-item[data-value="tiktok"]:hover { background: rgba(255, 0, 80, 0.15); border-left-color: var(--color-tiktok); color: var(--color-tiktok); }
+
+        .dropdown-item[data-value="youtube"] { color: #fff; }
+        .dropdown-item[data-value="youtube"]:hover { background: rgba(255, 0, 0, 0.15); border-left-color: var(--color-youtube); color: var(--color-youtube); }
+
+        .dropdown-item[data-value="okru"] { color: #fff; }
+        .dropdown-item[data-value="okru"]:hover { background: rgba(255, 140, 0, 0.15); border-left-color: var(--color-okru); color: var(--color-okru); }
+
+        .dropdown-item[data-value="dailymotion"] { color: #fff; }
+        .dropdown-item[data-value="dailymotion"]:hover { background: rgba(0, 102, 255, 0.15); border-left-color: var(--color-dailymotion); color: var(--color-dailymotion); }
+
+        .dropdown-item[data-value="vk"] { color: #fff; }
+        .dropdown-item[data-value="vk"]:hover { background: rgba(0, 119, 255, 0.15); border-left-color: var(--color-vk); color: var(--color-vk); }
+
+        /* Buttons */
         .btn-action { 
             padding: 15px 30px; border: none; border-radius: 12px; font-weight: 800; 
             font-size: 15px; cursor: pointer; transition: 0.3s; letter-spacing: 0.5px;
@@ -221,30 +254,43 @@
         </div>
         <div class="stat-card">
             <span class="stat-title">Selected Platform</span>
-            <div class="stat-value" id="activePlatformText" style="color: #00f2fe;">TikTok</div>
+            <div class="stat-value" id="activePlatformText" style="color: var(--color-tiktok);">TikTok</div>
         </div>
     </div>
 
     <div class="main-card">
         
-        <!-- Smart Notification Banner -->
-        <div id="limitBanner" class="limit-banner">
-            <i>💡</i> <span id="bannerText">System Safe Limit: Please check max 30-40 links at a time to avoid temporary API blocks.</span>
-        </div>
-
         <label class="input-label">Paste your video links below (One link per line):</label>
         <textarea id="urlInput" placeholder="https://www.tiktok.com/...&#10;https://www.youtube.com/..."></textarea>
         
         <div class="controls">
-            <select id="platformSelect">
+            
+            <!-- Custom Dropdown -->
+            <div class="custom-dropdown">
+                <div class="dropdown-trigger" id="dropdownTrigger">
+                    <span id="selectedPlatformText" style="color: var(--color-tiktok); text-shadow: 0 0 10px rgba(255,0,80,0.3);">TikTok</span>
+                    <span style="font-size: 10px; color: #888;">▼</span>
+                </div>
+                <div class="dropdown-menu" id="dropdownMenu">
+                    <div class="dropdown-item" data-value="tiktok">TikTok</div>
+                    <div class="dropdown-item" data-value="youtube">YouTube</div>
+                    <div class="dropdown-item" data-value="okru">OK.ru</div>
+                    <div class="dropdown-item" data-value="dailymotion">Dailymotion</div>
+                    <div class="dropdown-item" data-value="vk">VK.com</div>
+                </div>
+            </div>
+            
+            <!-- Hidden Native Select for JS compatibility -->
+            <select id="platformSelect" style="display:none;">
                 <option value="tiktok">TikTok</option>
                 <option value="youtube">YouTube</option>
                 <option value="okru">OK.ru</option>
                 <option value="dailymotion">Dailymotion</option>
                 <option value="vk">VK.com</option>
             </select>
+
             <button onclick="startScraping('status')" id="btnStatus" class="btn-action btn-status-check">⚡ Fast Status Check</button>
-            <button onclick="startScraping('full')" id="btnFull" class="btn-action btn-full-scan">🔍 Full Scrape</button>
+            <button onclick="startScraping('full')" id="btnFull" class="btn-action btn-full-scan">🔍 TikTok Full Scrape</button>
         </div>
         
         <div id="loader" class="loader">⏳ Processing your request, please wait...</div>
@@ -272,14 +318,52 @@
         let currentMode = "";
         let totalScrapesCount = 0;
 
-        // Platform specific messages dictionary
-        const platformLimits = {
-            tiktok: "System Safe Limit: Max 30-40 links. Exceeding this may cause temporary API blocks.",
-            youtube: "System Safe Limit: Max 8,000 links per day (API Quota). Please process in small batches of 50.",
-            okru: "System Safe Limit: Max 40-50 links. High volume may trigger IP restrictions.",
-            dailymotion: "System Safe Limit: Max 40-50 links. Process in small batches for fastest results.",
-            vk: "System Safe Limit: Max 10 links at a time. Our system adds a safety delay; exceeding this will cause IP blocks."
+        // Colors mapping for JS
+        const brandColors = {
+            tiktok: { color: 'var(--color-tiktok)', rgba: 'rgba(255, 0, 80, 0.3)' },
+            youtube: { color: 'var(--color-youtube)', rgba: 'rgba(255, 0, 0, 0.3)' },
+            okru: { color: 'var(--color-okru)', rgba: 'rgba(255, 140, 0, 0.3)' },
+            dailymotion: { color: 'var(--color-dailymotion)', rgba: 'rgba(0, 102, 255, 0.3)' },
+            vk: { color: 'var(--color-vk)', rgba: 'rgba(0, 119, 255, 0.3)' }
         };
+
+        // Custom Dropdown Logic
+        const dropdownTrigger = document.getElementById('dropdownTrigger');
+        const dropdownMenu = document.getElementById('dropdownMenu');
+        const platformSelect = document.getElementById('platformSelect');
+        const selectedPlatformText = document.getElementById('selectedPlatformText');
+
+        // Toggle Menu
+        dropdownTrigger.addEventListener('click', () => {
+            dropdownMenu.classList.toggle('open');
+        });
+
+        // Close menu when clicking outside
+        window.addEventListener('click', (e) => {
+            if (!dropdownTrigger.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdownMenu.classList.remove('open');
+            }
+        });
+
+        // Handle Item Selection
+        document.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const value = this.getAttribute('data-value');
+                const text = this.innerText;
+                
+                // Update Hidden Select (to keep backend logic working)
+                platformSelect.value = value;
+                
+                // Update Custom Trigger Text
+                selectedPlatformText.innerText = text;
+                
+                // Close Menu
+                dropdownMenu.classList.remove('open');
+
+                // Trigger existing change event logic
+                platformSelect.dispatchEvent(new Event('change'));
+            });
+        });
 
         function escapeHtml(text) {
             if (text === null || text === undefined) return "-";
@@ -289,37 +373,30 @@
         }
 
         function updatePlatformUI() {
-            const platform = document.getElementById('platformSelect').value;
+            const platform = platformSelect.value;
             const btnStatus = document.getElementById('btnStatus');
             const btnFull = document.getElementById('btnFull');
+            const statsText = document.getElementById('activePlatformText');
             
-            // Update Stats Card
-            document.getElementById('activePlatformText').innerText = platform.toUpperCase();
+            // Update Brand Colors
+            const theme = brandColors[platform] || brandColors.tiktok;
             
-            // Update Limit Notification Banner
-            const banner = document.getElementById('limitBanner');
-            const bannerText = document.getElementById('bannerText');
+            // Apply color to Dropdown Text
+            selectedPlatformText.style.color = theme.color;
+            selectedPlatformText.style.textShadow = `0 0 10px ${theme.rgba}`;
             
-            if(platformLimits[platform]) {
-                bannerText.innerText = platformLimits[platform];
-                banner.style.display = 'flex';
-                // VK ke liye thoda red warning color aur baaki ke liye yellow
-                if(platform === 'vk') {
-                    banner.style.background = 'rgba(255, 74, 74, 0.1)';
-                    banner.style.borderLeftColor = '#ff4a4a';
-                    banner.style.color = '#ffb3b3';
-                } else {
-                    banner.style.background = 'rgba(255, 170, 0, 0.1)';
-                    banner.style.borderLeftColor = '#ffaa00';
-                    banner.style.color = '#ffd580';
-                }
-            }
+            // Apply color to Stat Card Text
+            statsText.innerText = platform.toUpperCase();
+            statsText.style.color = theme.color;
 
             // UI Buttons Logic
             if (platform === 'youtube') { 
                 btnStatus.style.display = 'none'; 
                 btnFull.style.display = 'flex';
                 btnFull.innerHTML = '▶️ YouTube Full Scrape';
+                btnFull.style.background = 'linear-gradient(135deg, #ff0000, #cc0000)'; 
+                btnFull.style.boxShadow = '0 10px 20px rgba(255, 0, 0, 0.2)';
+                btnFull.style.color = '#fff';
             } else if (platform === 'vk') {
                 btnStatus.style.display = 'flex'; 
                 btnFull.style.display = 'none';
@@ -327,15 +404,18 @@
                 btnStatus.style.display = 'flex'; 
                 btnFull.style.display = 'flex';
                 btnFull.innerHTML = `🔍 ${platform.charAt(0).toUpperCase() + platform.slice(1)} Full Scrape`;
+                btnFull.style.background = 'linear-gradient(135deg, #00f2fe, #4facfe)'; 
+                btnFull.style.boxShadow = '0 10px 20px rgba(0, 242, 254, 0.2)';
+                btnFull.style.color = '#000';
             }
         }
 
-        document.getElementById('platformSelect').addEventListener('change', updatePlatformUI);
+        platformSelect.addEventListener('change', updatePlatformUI);
         updatePlatformUI();
 
         async function startScraping(mode) {
             const urls = document.getElementById('urlInput').value;
-            const platform = document.getElementById('platformSelect').value;
+            const platform = platformSelect.value;
             
             if (!urls.trim()) { alert('Please enter at least one link!'); return; }
 
