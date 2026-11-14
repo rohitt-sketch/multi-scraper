@@ -328,7 +328,6 @@
     <script>
         let currentScrapedData = [];
         let currentMode = "";
-        let totalScrapesCount = 0;
 
         // Colors mapping for JS
         const brandColors = {
@@ -484,9 +483,8 @@
                 currentScrapedData = data.results || [];
                 renderTable(mode, currentScrapedData);
                 
-                // Update Total Scrapes stat
-                totalScrapesCount += currentScrapedData.length;
-                document.getElementById('totalScrapes').innerText = totalScrapesCount;
+                // Update Total Scrapes stat (FIXED: Ab ye purane count me add nahi hoga)
+                document.getElementById('totalScrapes').innerText = currentScrapedData.length;
 
                 document.getElementById('resultsArea').style.display = 'block';
                 document.getElementById('copyBar').style.display = 'flex';
@@ -514,7 +512,7 @@
                     if (item.status === 'Active') {
                         statusClass = 'success'; // Green
                     } else if (item.status.includes('Error') || item.status.includes('Blocked') || item.status.includes('Failed')) {
-                        statusClass = 'warning'; // Orange
+                        statusClass = 'warning'; // Orange (Blocked/Error ke liye)
                     }
 
                     tr.innerHTML = `
