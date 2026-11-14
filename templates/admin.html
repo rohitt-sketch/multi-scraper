@@ -3,25 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <title>Admin Approvals</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { background: #0f0f13; color: white; font-family: Arial, sans-serif; padding: 40px; }
-        .container { max-width: 800px; margin: auto; background: #1a1a24; padding: 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h2 { color: #00f2fe; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
-        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-approve { background: #00ff88; color: black; }
-        .btn-approve:hover { background: #33ffa0; transform: translateY(-2px); }
-        .btn-back { background: #333; color: white; text-decoration: none; padding: 10px 20px; border-radius: 5px; display: inline-block; margin-bottom: 20px; transition: 0.3s;}
-        .btn-back:hover { background: #555; }
-        .status-pending { color: #ffaa00; font-weight: bold; }
-        .status-approved { color: #00ff88; font-weight: bold; }
+        :root {
+            --primary: #00f2fe;
+            --bg-dark: #0a0a0f;
+            --glass-bg: rgba(20, 20, 30, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        
+        body { 
+            background: var(--bg-dark); color: white; padding: 50px; min-height: 100vh;
+            background-image: radial-gradient(circle at 50% 0%, rgba(0, 242, 254, 0.1), transparent 30%);
+        }
+
+        .container { 
+            max-width: 900px; margin: auto; background: var(--glass-bg); 
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            padding: 40px; border-radius: 24px; border: 1px solid var(--glass-border);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+        }
+
+        h2 { 
+            font-size: 24px; font-weight: 800; border-bottom: 1px solid var(--glass-border); 
+            padding-bottom: 20px; margin-bottom: 30px;
+            background: linear-gradient(90deg, #00f2fe, #4facfe);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        table { width: 100%; border-collapse: collapse; background: rgba(0,0,0,0.2); border-radius: 12px; overflow: hidden; }
+        th, td { padding: 18px; text-align: left; border-bottom: 1px solid var(--glass-border); }
+        th { background: rgba(0,0,0,0.4); font-weight: 600; color: #aaa; font-size: 14px; }
+        
+        .btn { 
+            padding: 10px 20px; border: none; border-radius: 8px; 
+            cursor: pointer; font-weight: 800; transition: 0.3s; font-size: 13px;
+        }
+        .btn-approve { background: linear-gradient(135deg, #00ff88, #00cc66); color: #000; }
+        .btn-approve:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0, 255, 136, 0.3); }
+        
+        .btn-back { 
+            background: rgba(255,255,255,0.05); color: white; text-decoration: none; 
+            padding: 10px 20px; border-radius: 8px; display: inline-block; margin-bottom: 30px; 
+            transition: 0.3s; font-weight: 600; font-size: 14px; border: 1px solid var(--glass-border);
+        }
+        .btn-back:hover { background: rgba(255,255,255,0.1); transform: translateX(-5px); }
+        
+        .status-pending { color: #ffaa00; font-weight: 800; text-shadow: 0 0 10px rgba(255, 170, 0, 0.3); }
+        .status-approved { color: #00ff88; font-weight: 800; text-shadow: 0 0 10px rgba(0, 255, 136, 0.3); }
     </style>
 </head>
 <body>
     <div class="container">
         <a href="/dashboard" class="btn-back">← Back to Dashboard</a>
-        <h2>👑 Admin User Approvals</h2>
+        <h2>👑 Admin Approvals</h2>
         
         <table>
             <thead>
@@ -42,16 +78,16 @@
                         {% if user[1] == 'pending' %}
                         <form action="/admin/approve" method="post" style="margin:0;">
                             <input type="hidden" name="target_email" value="{{ user[0] }}">
-                            <button type="submit" class="btn btn-approve">Approve</button>
+                            <button type="submit" class="btn btn-approve">Approve User</button>
                         </form>
                         {% else %}
-                        <span style="color:#888;">Already Approved</span>
+                        <span style="color:#666; font-weight:600; font-size:14px;">✓ Approved</span>
                         {% endif %}
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="3" style="text-align:center; color:#888;">No other users have registered yet.</td>
+                    <td colspan="3" style="text-align:center; color:#666; padding: 30px;">No other users have registered yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>

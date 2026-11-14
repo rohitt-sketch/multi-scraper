@@ -3,57 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Scraper - Login</title>
+    <title>Multi-Scraper | Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --bg-dark: #050505;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        
         body {
-            background-color: #0d1117; color: white; font-family: Arial, sans-serif;
-            display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;
+            background-color: var(--bg-dark);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
         }
+
+        /* Animated Background Blobs */
+        .blob {
+            position: absolute;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.6;
+            animation: float 10s infinite alternate;
+        }
+        .blob-1 { width: 400px; height: 400px; background: #00f2fe; top: -10%; left: -10%; }
+        .blob-2 { width: 300px; height: 300px; background: #4facfe; bottom: -10%; right: -10%; animation-delay: -5s; }
+        
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(50px, 50px) scale(1.2); }
+        }
+
         .box {
-            background: #161b22; padding: 40px; border-radius: 12px; width: 350px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: center;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            padding: 50px 40px;
+            border-radius: 20px;
+            width: 400px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            text-align: center;
+            z-index: 1;
+            animation: fadeIn 0.8s ease-out;
         }
-        h2 { color: #00d2ff; margin-bottom: 20px; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h2 { 
+            font-size: 28px; margin-bottom: 30px; font-weight: 800; letter-spacing: 1px;
+            background: linear-gradient(90deg, #00f2fe, #4facfe);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
         input {
-            width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px;
-            border: 1px solid #30363d; background: #0d1117; color: white; box-sizing: border-box;
+            width: 100%; padding: 15px; margin: 12px 0; border-radius: 10px;
+            border: 1px solid var(--glass-border); background: rgba(0,0,0,0.4); color: white;
+            font-size: 15px; outline: none; transition: all 0.3s ease;
         }
+
+        input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+            background: rgba(0,0,0,0.6);
+        }
+
         button {
-            width: 100%; padding: 12px; background: #00d2ff; color: black;
-            border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 15px;
+            width: 100%; padding: 15px; margin-top: 20px;
+            background: linear-gradient(135deg, #00f2fe, #4facfe);
+            color: #000; border: none; border-radius: 10px; 
+            font-weight: 800; font-size: 16px; cursor: pointer;
+            transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
         }
-        button:hover { background: #00b8e6; }
-        .toggle-link { color: #00d2ff; cursor: pointer; text-decoration: underline; }
-        .error { color: #ff4a4a; font-size: 14px; margin-top: 10px; }
-        .success-msg { color: #00ff88; font-size: 14px; margin-top: 10px; }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 242, 254, 0.4);
+        }
+
+        .toggle-link { color: var(--primary); cursor: pointer; font-weight: 600; text-decoration: none; transition: 0.3s; }
+        .toggle-link:hover { text-shadow: 0 0 10px var(--primary); }
+
+        .error { color: #ff4a4a; font-size: 14px; margin-top: 15px; font-weight: 500; }
+        .success-msg { color: #00ff88; font-size: 14px; margin-top: 15px; font-weight: 500; }
+
+        .developer-credit {
+            margin-top: 30px; font-size: 13px; color: #888; letter-spacing: 1px; z-index: 1;
+        }
+        .developer-credit span { color: var(--primary); font-weight: 800; }
     </style>
 </head>
 <body>
 
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
     <div class="box">
-        <h2 id="form-title">Login</h2>
+        <h2 id="form-title">Welcome Back</h2>
         
         <div id="status-msg" class="error"></div>
 
         <form id="auth-form" action="/login" method="post">
             <input type="email" name="email" id="email" placeholder="Email Address" required>
             <input type="password" name="password" id="password" placeholder="Password" required>
-            <button type="submit" id="submit-btn">Login</button>
+            <button type="submit" id="submit-btn">Sign In</button>
         </form>
 
-        <p style="margin-top: 20px; font-size: 14px; color: #8b949e;">
+        <p style="margin-top: 25px; font-size: 14px; color: #aaa;">
             <span id="toggle-text">Don't have an account? </span>
             <span id="toggle-link" class="toggle-link" onclick="toggleForm()">Create Account</span>
         </p>
+    </div>
+
+    <div class="developer-credit">
+        Designed & Developed by <span>Rohit Joshi</span>
     </div>
 
     <script>
         let isLogin = true;
 
         function toggleForm() {
-            // URL se error/success parameters remove karein
             window.history.replaceState({}, document.title, window.location.pathname);
-
             isLogin = !isLogin;
             const title = document.getElementById('form-title');
             const btn = document.getElementById('submit-btn');
@@ -62,22 +144,21 @@
             const form = document.getElementById('auth-form');
             const statusMsg = document.getElementById('status-msg');
 
-            // Purana error/success message hata dein
             statusMsg.innerText = "";
             statusMsg.className = ""; 
 
             if (isLogin) {
-                title.innerText = "Login";
-                btn.innerText = "Login";
+                title.innerText = "Welcome Back";
+                btn.innerText = "Sign In";
                 form.action = "/login";
                 toggleText.innerText = "Don't have an account? ";
                 toggleLink.innerText = "Create Account";
             } else {
                 title.innerText = "Create Account";
-                btn.innerText = "Create Account";
+                btn.innerText = "Register";
                 form.action = "/register";
                 toggleText.innerText = "Already have an account? ";
-                toggleLink.innerText = "Login";
+                toggleLink.innerText = "Sign In";
             }
         }
 
