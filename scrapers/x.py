@@ -1,5 +1,4 @@
-﻿@'
-import requests
+﻿import requests
 import re
 import concurrent.futures
 
@@ -63,4 +62,3 @@ def scrape_data(urls_str):
 def check_status(urls_str):
     results = scrape_data(urls_str)
     return [{"status": r["status"], "url": r["url"]} for r in results]
-'@ | Set-Content -Path "scrapers\x.py" -Encoding UTF8
