@@ -25,14 +25,22 @@ def check_fb_status(url):
                 }
     except Exception as e:
         error_msg = str(e).lower()
-        if any(x in error_msg for x in ["private", "unavailable", "removed", "not found", "login"]):
+        
+        # Agar video waqai delete/private hai
+        if any(x in error_msg for x in ["private", "unavailable", "removed", "not found", "unsupported url", "does not exist", "content isn't available"]):
             return {"status": "Dead / Private", "url": url, "title": "-", "author": "-", "views": "-", "likes": "-", "duration": "-", "date": "-", "subs": "-"}
-        return {"status": f"Error", "url": url, "title": str(e), "author": "-", "views": "-", "likes": "-", "duration": "-", "date": "-", "subs": "-"}
+        
+        # Agar Facebook ne bot block lagaya hai (IP block)
+        elif any(x in error_msg for x in ["login", "cookie", "bot", "403", "blocked", "cannot parse", "http error", "empty media response"]):
+            return {"status": "Blocked by FB", "url": url, "title": "IP Blocked", "author": "-", "views": "-", "likes": "-", "duration": "-", "date": "-", "subs": "-"}
+            
+        return {"status": "Check Failed", "url": url, "title": str(e)[:50], "author": "-", "views": "-", "likes": "-", "duration": "-", "date": "-", "subs": "-"}
+        
     return {"status": "Dead / Private", "url": url, "title": "-", "author": "-", "views": "-", "likes": "-", "duration": "-", "date": "-", "subs": "-"}
 
 def scrape_data(urls_str):
     url_list = [u.strip() for u in urls_str.split('\n') if u.strip()]
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         return list(executor.map(check_fb_status, url_list))
 
 def check_status(urls_str):

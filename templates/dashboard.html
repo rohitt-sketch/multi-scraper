@@ -105,6 +105,16 @@
             position: relative; overflow: visible;
         }
         
+        /* Smart Limit Notification Banner */
+        .limit-banner {
+            display: flex; align-items: center; gap: 12px;
+            background: rgba(255, 170, 0, 0.1); border-left: 4px solid #ffaa00;
+            padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;
+            font-size: 14px; color: #ffd580; font-weight: 500;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: all 0.3s ease;
+        }
+        .limit-banner i { font-style: normal; font-size: 18px; }
+
         .input-label { color: var(--text-main); margin-bottom: 15px; font-size: 16px; font-weight: 600; display: block; }
         
         textarea { 
@@ -138,8 +148,7 @@
             background: rgba(15, 15, 25, 0.95); backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border); border-radius: 12px;
             overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            animation: fadeIn 0.2s ease;
-            max-height: 300px; overflow-y: auto;
+            animation: fadeIn 0.2s ease; max-height: 300px; overflow-y: auto;
         }
         .dropdown-menu.open { display: block; }
         
@@ -200,8 +209,10 @@
         td { padding: 15px 18px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #ccc; }
         tr:hover td { background: rgba(0, 242, 254, 0.05); }
         
+        /* Status Colors */
         .success { color: #00ff88; font-weight: 800; text-shadow: 0 0 10px rgba(0, 255, 136, 0.3); }
         .failed { color: #ff4a4a; font-weight: 800; text-shadow: 0 0 10px rgba(255, 74, 74, 0.3); }
+        .warning { color: #ffaa00; font-weight: 800; text-shadow: 0 0 10px rgba(255, 170, 0, 0.3); }
         
         /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -252,6 +263,11 @@
 
     <div class="main-card">
         
+        <!-- Smart Limit Notification Banner -->
+        <div id="limitBanner" class="limit-banner">
+            <i>💡</i> <span id="bannerText">System Safe Limit: Max 30-40 links at a time. Exceeding this may cause temporary API blocks.</span>
+        </div>
+
         <label class="input-label">Paste your video links below (One link per line):</label>
         <textarea id="urlInput" placeholder="https://www.tiktok.com/...&#10;https://www.youtube.com/..."></textarea>
         
@@ -325,6 +341,17 @@
             instagram: { color: 'var(--color-instagram)', rgba: 'rgba(225, 48, 108, 0.3)' }
         };
 
+        // Platform limits dictionary (Batch limits per request)
+        const platformLimits = {
+            tiktok: "System Safe Limit: Max 30-40 links at a time. Exceeding this may cause temporary blocks.",
+            youtube: "System Safe Limit: Max 10-20 links at a time. (Large batches cause server timeout).",
+            okru: "System Safe Limit: Max 30-40 links at a time. High volume may trigger IP restrictions.",
+            dailymotion: "System Safe Limit: Max 30-40 links at a time.",
+            vk: "System Safe Limit: Max 10 links at a time. Our system adds a safety delay; exceeding this will cause IP blocks.",
+            facebook: "System Safe Limit: Max 15-20 links at a time. (Large batches may trigger Meta security).",
+            instagram: "System Safe Limit: Max 10-15 links at a time. (Strict IP blocking)."
+        };
+
         // Custom Dropdown Logic
         const dropdownTrigger = document.getElementById('dropdownTrigger');
         const dropdownMenu = document.getElementById('dropdownMenu');
@@ -371,14 +398,31 @@
             
             // Update Brand Colors
             const theme = brandColors[platform] || brandColors.tiktok;
-            
-            // Apply color to Dropdown Text
             selectedPlatformText.style.color = theme.color;
             selectedPlatformText.style.textShadow = `0 0 10px ${theme.rgba}`;
             
             // Apply color to Stat Card Text
             statsText.innerText = platform.toUpperCase();
             statsText.style.color = theme.color;
+
+            // Update Limit Notification Banner
+            const banner = document.getElementById('limitBanner');
+            const bannerText = document.getElementById('bannerText');
+            
+            if(platformLimits[platform]) {
+                bannerText.innerText = platformLimits[platform];
+                banner.style.display = 'flex';
+                // Agar limit strict hai toh Red warning color
+                if(platform === 'vk' || platform === 'instagram' || platform === 'facebook') {
+                    banner.style.background = 'rgba(255, 74, 74, 0.1)';
+                    banner.style.borderLeftColor = '#ff4a4a';
+                    banner.style.color = '#ffb3b3';
+                } else {
+                    banner.style.background = 'rgba(255, 170, 0, 0.1)';
+                    banner.style.borderLeftColor = '#ffaa00';
+                    banner.style.color = '#ffd580';
+                }
+            }
 
             // UI Buttons Logic
             if (platform === 'youtube') { 
@@ -465,9 +509,16 @@
                 thead.innerHTML = `<tr><th>Status</th><th>Video URL</th></tr>`;
                 results.forEach(item => {
                     const tr = document.createElement('tr');
-                    const isActive = item.status === 'Active';
+                    let statusClass = 'failed'; // Default Red
+                    
+                    if (item.status === 'Active') {
+                        statusClass = 'success'; // Green
+                    } else if (item.status.includes('Error') || item.status.includes('Blocked') || item.status.includes('Failed')) {
+                        statusClass = 'warning'; // Orange
+                    }
+
                     tr.innerHTML = `
-                        <td class="${isActive ? 'success' : 'failed'}">${escapeHtml(item.status)}</td>
+                        <td class="${statusClass}">${escapeHtml(item.status)}</td>
                         <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.url)}</td>
                     `;
                     tbody.appendChild(tr);
