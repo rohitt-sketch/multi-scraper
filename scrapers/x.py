@@ -1,6 +1,21 @@
 ﻿"""
 X/Twitter status checker v2
+
 Rule: Dead sirf pakke saboot par. Shak ho to Error / Rate Limited (retry), Dead NAHI.
+
+  Primary   : oEmbed (publish.x.com) + Syndication (cdn.syndication.twimg.com)
+  Secondary : fxtwitter + vxtwitter (sirf confirm / metadata ke liye)
+
+  - Primary me se koi 1 Active            -> Active  (ek 404 flake ignore)
+  - Dono primary Dead (secondary na ulte) -> Dead / Private
+  - Sirf 1 primary Dead                   -> secondary se confirm ho tabhi Dead, warna Error
+  - Kuch clear nahi / network / 429       -> Error / Rate Limited (auto recheck 1 baar)
+  - Tweet zinda par media copyright/DMCA se disabled -> Dead / Private (media_check=False se band)
+
+Setup:  pip install requests
+Use:
+    from x_checker_v2 import check_x_status
+    print(check_x_status("https://x.com/user/status/123456789"))
 """
 from __future__ import annotations
 
@@ -23,11 +38,16 @@ ACTIVE, DEAD, UNKNOWN, RATE = "active", "dead", "unknown", "rate_limited"
 
 _local = threading.local()
 
-class Sig(NamedTuple):
-    state: str
-    data: dict
-    info: str
 
+class Sig(NamedTuple):
+    state: str      # active | dead | unknown | rate_limited
+    data: dict      # parsed payload (sirf active me kaam ka)
+    info: str       # debug reason
+
+
+# --------------------------------------------------------------------------- #
+# helpers
+# --------------------------------------------------------------------------- #
 def _session() -> requests.Session:
     if not hasattr(_local, "s"):
         s = requests.Session()
@@ -35,7 +55,9 @@ def _session() -> requests.Session:
         _local.s = s
     return _local.s
 
+
 def _get(url, headers=None, timeout=12, tries=3, backoff=1.0):
+    """Returns (response | None, error | None). 429/5xx/network par retry."""
     resp, err = None, None
     for i in range(tries):
         try:
@@ -48,7 +70,9 @@ def _get(url, headers=None, timeout=12, tries=3, backoff=1.0):
             time.sleep(backoff * (i + 1))
     return resp, err
 
+
 def _failure(resp, err, name) -> Optional[Sig]:
+    """Network / 429 / 5xx ko Unknown ya Rate me badalta hai. Normal response par None."""
     if resp is None:
         return Sig(UNKNOWN, {}, f"{name} net: {str(err)[:50]}")
     if resp.status_code == 429:
@@ -57,13 +81,16 @@ def _failure(resp, err, name) -> Optional[Sig]:
         return Sig(UNKNOWN, {}, f"{name} HTTP {resp.status_code}")
     return None
 
+
 def _http_dead(resp) -> bool:
+    """404/410 = dead. 401/403 = dead sirf jab HTML bot-wall na ho."""
     code = resp.status_code
     if code in (404, 410):
         return True
     if code in (401, 403):
         return "<html" not in (resp.text or "")[:500].lower()
     return False
+
 
 def _json(resp):
     try:
@@ -72,6 +99,7 @@ def _json(resp):
     except ValueError:
         return None
 
+
 _URL_RE = re.compile(
     r"^(?:https?://)?(?:www\.|mobile\.)?"
     r"(?:x|twitter|fxtwitter|fixupx|vxtwitter|pxtwitter)\.com/"
@@ -79,11 +107,13 @@ _URL_RE = re.compile(
     re.IGNORECASE,
 )
 
+
 def extract_tweet_id(url) -> Optional[str]:
     if not url or not isinstance(url, str):
         return None
     m = _URL_RE.match(url.strip())
     return m.group(1) if m else None
+
 
 def _get_token(tweet_id: str) -> str:
     chars = "0123456789abcdefghijklmnopqrstuvwxyz"
@@ -107,6 +137,10 @@ def _get_token(tweet_id: str) -> str:
                 break
     return (res + "".join(frac)).replace("0", "")
 
+
+# --------------------------------------------------------------------------- #
+# individual checkers
+# --------------------------------------------------------------------------- #
 def check_oembed(tid) -> Sig:
     target = quote(f"https://x.com/i/status/{tid}", safe="")
     resp, err = _get(f"https://publish.x.com/oembed?url={target}&omit_script=true")
@@ -121,6 +155,7 @@ def check_oembed(tid) -> Sig:
             return Sig(ACTIVE, d, "oembed 200")
         return Sig(UNKNOWN, {}, "oembed 200 but no html")
     return Sig(UNKNOWN, {}, f"oembed HTTP {resp.status_code}")
+
 
 def check_syndication(tid) -> Sig:
     url = (f"https://cdn.syndication.twimg.com/tweet-result"
@@ -148,6 +183,7 @@ def check_syndication(tid) -> Sig:
         return Sig(UNKNOWN, d, f"synd unknown typename {tn}")
     return Sig(UNKNOWN, {}, f"synd HTTP {resp.status_code}")
 
+
 def check_fx(tid) -> Sig:
     resp, err = _get(f"https://api.fxtwitter.com/2/status/{tid}",
                      headers={"User-Agent": "x-status-checker/2.0"})
@@ -164,6 +200,7 @@ def check_fx(tid) -> Sig:
     if code in (401, 403, 404, 410):
         return Sig(DEAD, {}, f"fx code {code}")
     return Sig(UNKNOWN, {}, f"fx code {code}")
+
 
 def check_vx(tid) -> Sig:
     resp, err = _get(f"https://api.vxtwitter.com/Twitter/status/{tid}",
@@ -183,6 +220,10 @@ def check_vx(tid) -> Sig:
         return Sig(DEAD, {}, f"vx code {d.get('code')}")
     return Sig(UNKNOWN, {}, "vx unclear")
 
+
+# --------------------------------------------------------------------------- #
+# decision
+# --------------------------------------------------------------------------- #
 def decide(o: Sig, s: Sig, f: Sig, v: Optional[Sig] = None):
     prim = (o.state, s.state)
     sec = tuple(x.state for x in (f, v) if x is not None)
@@ -205,14 +246,20 @@ def decide(o: Sig, s: Sig, f: Sig, v: Optional[Sig] = None):
             return "Dead / Private", "1 primary dead + secondary dead"
         return "Error", "1 primary dead, confirm nahi hua - recheck (Dead nahi)"
 
+    # primary ne kuch clear nahi bola
     if sa >= 1 and sd == 0:
         return "Active", "primary silent, secondary active"
     if RATE in prim + sec:
         return "Rate Limited", "rate limit - thoda ruk ke retry karo"
     return "Error", "sab unknown/conflict (network?) - Dead nahi, retry karo"
 
+
+# --------------------------------------------------------------------------- #
+# metadata
+# --------------------------------------------------------------------------- #
 def _data(sig: Optional[Sig]) -> dict:
     return sig.data if sig is not None and sig.state == ACTIVE else {}
+
 
 def _first(*vals, default=None):
     for x in vals:
@@ -220,8 +267,10 @@ def _first(*vals, default=None):
             return x
     return default
 
+
 def _fmt(x, default):
     return f"{x:,}" if isinstance(x, (int, float)) and not isinstance(x, bool) else default
+
 
 def _meta(o, s, f, v):
     od, sd_, fd, vd = _data(o), _data(s), _data(f), _data(v)
@@ -248,24 +297,95 @@ def _meta(o, s, f, v):
         "subs": _fmt(_first(fa.get("followers"), su.get("followers_count")), "N/A"),
     }
 
+
 def _result(status, url, title="-", **kw):
     base = {"status": status, "url": url, "title": title, "author": "-",
-            "likes": "-", "views": "-", "date": "-", "subs": "-"}
+            "likes": "-", "views": "-", "date": "-", "subs": "-", "note": "-"}
     base.update(kw)
     return base
 
+
+# --------------------------------------------------------------------------- #
+# media disabled (copyright / DMCA) detection
+# Tweet zinda hota hai par media "disabled in response to a report by the
+# copyright owner" hota hai -> hum isse Dead / Private maante hain.
+# --------------------------------------------------------------------------- #
+_DMCA_RE = re.compile(r"dmca|copyright", re.I)
+_DISABLED_TXT_RE = re.compile(r"disabled in response to a report|media has been disabled", re.I)
+_TRAIL_TCO_RE = re.compile(r"\s*https://t\.co/\w+\s*")
+
+
+def _scan_media_flags(obj, depth=0):
+    """Payload me kahin bhi explicit 'media unavailable / DMCA' flag dhundta hai."""
+    if depth > 12:
+        return None
+    if isinstance(obj, dict):
+        ema = obj.get("ext_media_availability")
+        if isinstance(ema, dict):
+            st = str(ema.get("status", "")).strip().lower()
+            if st and st != "available":
+                return f"ext_media_availability={ema.get('status')} ({ema.get('reason', '')})"
+        if obj.get("withheld_copyright") is True:
+            return "withheld_copyright=true"
+        for k, val in obj.items():
+            if k in ("reason", "withheld_reason") and isinstance(val, str) and _DMCA_RE.search(val):
+                return f"{k}={val}"
+            hit = _scan_media_flags(val, depth + 1)
+            if hit:
+                return hit
+    elif isinstance(obj, list):
+        for val in obj:
+            hit = _scan_media_flags(val, depth + 1)
+            if hit:
+                return hit
+    elif isinstance(obj, str) and _DISABLED_TXT_RE.search(obj):
+        return "text: media disabled by copyright owner"
+    return None
+
+
+def _media_missing_heuristic(sy: dict) -> Optional[str]:
+    """Syndication me text ke end me media wala t.co link hai par media object gayab -> media hata hua.
+    Quote-tweets me bhi trailing link cut hota hai, isliye unhe exclude karte hain."""
+    if not sy:
+        return None
+    rng = sy.get("display_text_range")
+    text = sy.get("text") or ""
+    if not (isinstance(rng, list) and len(rng) == 2 and isinstance(rng[1], int)):
+        return None
+    if not _TRAIL_TCO_RE.fullmatch(text[rng[1]:]):
+        return None
+    if sy.get("mediaDetails") or sy.get("photos") or sy.get("video"):
+        return None
+    if sy.get("quoted_tweet") or sy.get("is_quote_status"):
+        return None
+    return "media attached tha par ab media data gayab (likely removed/disabled)"
+
+
+def media_disabled(o, s, f, v=None) -> Optional[str]:
+    """Reason string agar tweet ka media disabled/removed lagta hai, warna None."""
+    for sig in (s, f, v):
+        hit = _scan_media_flags(_data(sig))
+        if hit:
+            return hit
+    return _media_missing_heuristic(_data(s))
+
+
+# --------------------------------------------------------------------------- #
+# public API
+# --------------------------------------------------------------------------- #
 def _round(tid):
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
         fo, fs, ff = ex.submit(check_oembed, tid), ex.submit(check_syndication, tid), ex.submit(check_fx, tid)
         o, s, f = fo.result(), fs.result(), ff.result()
     verdict, reason = decide(o, s, f)
     v = None
-    if verdict in ("Error", "Rate Limited"): 
+    if verdict in ("Error", "Rate Limited"):      # tie-breaker, sirf zarurat par
         v = check_vx(tid)
         verdict, reason = decide(o, s, f, v)
     return verdict, reason, (o, s, f, v)
 
-def check_x_status(url, debug=False, recheck=True):
+
+def check_x_status(url, debug=False, recheck=True, media_check=True):
     url = (url or "").strip()
     tid = extract_tweet_id(url)
     if not tid:
@@ -283,13 +403,21 @@ def check_x_status(url, debug=False, recheck=True):
                 break
             if attempt < attempts - 1:
                 time.sleep(2 * (attempt + 1))
-    except Exception as e: 
+    except Exception as e:  # koi bhi surprise Dead nahi banega
         return _result("Error", url, f"internal: {str(e)[:60]}")
 
     if verdict == "Active":
-        return _result("Active", url, **_meta(*sigs))
+        meta = _meta(*sigs)
+        if media_check:
+            why = media_disabled(*sigs)
+            if debug:
+                print(f"  media check: {why or 'ok (media available / no media)'}")
+            if why:
+                return _result("Dead / Private", url, note=f"media disabled: {why}", **meta)
+        return _result("Active", url, **meta)
     title = reason if verdict in ("Rate Limited", "Error") else "-"
-    return _result(verdict, url, title)
+    return _result(verdict, url, title, note=reason)
+
 
 def scrape_data(urls_str, max_workers=5):
     urls = [u.strip() for u in (urls_str or "").splitlines() if u.strip()]
@@ -298,5 +426,26 @@ def scrape_data(urls_str, max_workers=5):
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
         return list(ex.map(check_x_status, urls))
 
+
 def check_status(urls_str):
     return [{"status": r["status"], "url": r["url"]} for r in scrape_data(urls_str)]
+
+
+def dump_raw(url):
+    """Debug: syndication + fx ka raw JSON print karta hai (media detection check karne ke liye)."""
+    import json
+    tid = extract_tweet_id(url)
+    for name, sig in (("syndication", check_syndication(tid)), ("fxtwitter", check_fx(tid))):
+        print(f"\n===== {name}: {sig.state} ({sig.info}) =====")
+        print(json.dumps(sig.data, ensure_ascii=False, indent=1)[:6000])
+
+
+if __name__ == "__main__":
+    import sys
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    u = args[0] if args else "https://x.com/Goodwatchin/status/2121610324717588488"
+    if "--raw" in sys.argv:
+        dump_raw(u)
+    r = check_x_status(u, debug=True)
+    print(r)
+    print("STATUS:", r["status"], "|", r["note"])
