@@ -7,7 +7,6 @@ API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 
 def get_youtube_type(url_or_id):
     url_or_id = url_or_id.strip()
-    
     if re.match(r'^[0-9A-Za-z_-]{11}$', url_or_id): return 'video', url_or_id
     if re.match(r'^UC[0-9A-Za-z_-]{22}$', url_or_id): return 'channel_id', url_or_id
     match = re.search(r'(?:v=|\/)([0-9A-Za-z_-]{11})(?:[&?]|$)', url_or_id)
@@ -35,8 +34,6 @@ def fetch_videos_batch(video_ids):
     api_url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id={ids_str}&key={API_KEY}"
     try:
         res = requests.get(api_url, timeout=10).json()
-        
-        # API Error check
         if "error" in res:
             return [{"type": "Video", "status": "API Error", "id": vid, "title": "API Key Issue", "author": "-", "views": "-", "likes": "-", "duration": "-", "date": "-", "subs": "-"} for vid in video_ids]
 
@@ -51,7 +48,6 @@ def fetch_videos_batch(video_ids):
                     "title": item['snippet']['title'], "author": item['snippet']['channelTitle'],
                     "views": f"{int(stats.get('viewCount', 0)):,}",
                     "likes": f"{int(stats.get('likeCount', 0)):,}",
-                    # Live stream crash fix
                     "duration": parse_duration(item['contentDetails'].get('duration', '')),
                     "date": format_date(item['snippet']['publishedAt']),
                     "subs": "N/A"
@@ -67,7 +63,6 @@ def fetch_channels_batch(channel_ids):
     api_url = f"https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id={ids_str}&key={API_KEY}"
     try:
         res = requests.get(api_url, timeout=10).json()
-        
         if "error" in res:
             return [{"type": "Channel", "status": "API Error", "id": cid, "title": "API Key Issue", "author": "-", "views": "-", "likes": "-", "duration": "-", "date": "-", "subs": "-"} for cid in channel_ids]
 
@@ -94,7 +89,6 @@ def fetch_handle(handle):
     api_url = f"https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&forHandle={handle}&key={API_KEY}"
     try:
         res = requests.get(api_url, timeout=10).json()
-        
         if "error" in res:
             return {"lookup_key": handle, "type": "Channel", "status": "API Error", "id": handle, "title": "API Key Issue", "author": "-", "views": "-", "likes": "-", "duration": "-", "date": "-", "subs": "-"}
 
@@ -102,7 +96,7 @@ def fetch_handle(handle):
             item = res['items'][0]
             stats = item['statistics']
             return {
-                "lookup_key": handle, # <--- FIX 1 APPLIED HERE
+                "lookup_key": handle,
                 "type": "Channel", "status": "Active", "id": item['id'],
                 "title": item['snippet']['title'], "author": item['snippet']['title'],
                 "views": f"{int(stats.get('viewCount', 0)):,}",
@@ -142,7 +136,6 @@ def scrape_data(urls_str):
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             res_list = list(executor.map(fetch_handle, channel_handles))
             for item in res_list:
-                # <--- FIX 1 APPLIED HERE
                 key = item.pop("lookup_key", item["id"]) 
                 results_dict[key] = item
 
@@ -154,3 +147,8 @@ def scrape_data(urls_str):
         else:
             final_results.append({"type": "Unknown", "status": "Invalid Link", "id": url, "title": "Invalid Input", "author": "-", "views": "-", "likes": "-", "duration": "-", "date": "-", "subs": "-"})
     return final_results
+
+# FIX: Added missing check_status function so backend doesn't crash
+def check_status(urls_str):
+    results = scrape_data(urls_str)
+    return [{"status": r.get("status", "Unknown"), "url": r.get("id", "")} for r in results]

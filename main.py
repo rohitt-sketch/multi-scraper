@@ -148,5 +148,6 @@ def api_check_status(request: Request, urls: str = Form(...), platform: str = Fo
     try:
         if platform == "okru": return {"results": okru.check_status(urls)}
         elif platform == "dailymotion": return {"results": dailymotion.check_status(urls)}
+        elif platform == "youtube": return {"results": youtube.check_status(urls)}
         else: return {"results": tiktok.check_status(urls)}
     except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
