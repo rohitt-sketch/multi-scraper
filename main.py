@@ -5,7 +5,7 @@ from urllib.parse import quote
 import sqlite3
 import hashlib
 import hmac
-from scrapers import youtube, tiktok, okru, dailymotion
+from scrapers import youtube, tiktok, okru, dailymotion, vk
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -142,6 +142,13 @@ def api_scrape_dailymotion(request: Request, urls: str = Form(...)):
     try: return {"results": dailymotion.scrape_data(urls)}
     except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
 
+# VK ke liye naya route (sirf status check ke liye)
+@app.post("/scrape_vk")
+def api_scrape_vk(request: Request, urls: str = Form(...)):
+    if not get_current_user(request): return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    try: return {"results": vk.check_status(urls)}
+    except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
+
 @app.post("/check_status")
 def api_check_status(request: Request, urls: str = Form(...), platform: str = Form("tiktok")):
     if not get_current_user(request): return JSONResponse({"error": "Unauthorized"}, status_code=401)
@@ -149,5 +156,6 @@ def api_check_status(request: Request, urls: str = Form(...), platform: str = Fo
         if platform == "okru": return {"results": okru.check_status(urls)}
         elif platform == "dailymotion": return {"results": dailymotion.check_status(urls)}
         elif platform == "youtube": return {"results": youtube.check_status(urls)}
+        elif platform == "vk": return {"results": vk.check_status(urls)}
         else: return {"results": tiktok.check_status(urls)}
     except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)

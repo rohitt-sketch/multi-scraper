@@ -65,6 +65,7 @@
                 <option value="youtube">YouTube</option>
                 <option value="okru">OK.ru</option>
                 <option value="dailymotion">Dailymotion</option>
+                <option value="vk">VK.com</option>
             </select>
             <button onclick="startScraping('status')" id="btnStatus" class="btn-action btn-status-check">⚡ Fast Status Check</button>
             <button onclick="startScraping('full')" id="btnFull" class="btn-action btn-full-scan">🔍 Full Scrape</button>
@@ -97,22 +98,27 @@
             return div.innerHTML;
         }
 
-        // Platform change hone par button hide/show karne ka logic
-        document.getElementById('platformSelect').addEventListener('change', function() {
-            const platform = this.value;
+        function updatePlatformUI() {
+            const platform = document.getElementById('platformSelect').value;
             const btnStatus = document.getElementById('btnStatus');
             const btnFull = document.getElementById('btnFull');
             
-            if (platform === 'youtube') {
-                btnStatus.style.display = 'none';
-            } else {
-                btnStatus.style.display = 'block';
+            if (platform === 'youtube') { 
+                btnStatus.style.display = 'none'; 
+                btnFull.style.display = 'block';
+                btnFull.innerHTML = '▶️ YouTube Full Scrape';
+            } else if (platform === 'vk') {
+                btnStatus.style.display = 'block'; 
+                btnFull.style.display = 'none';
+            } else { 
+                btnStatus.style.display = 'block'; 
+                btnFull.style.display = 'block';
+                btnFull.innerHTML = `🔍 ${platform.charAt(0).toUpperCase() + platform.slice(1)} Full Scrape`;
             }
-            btnFull.innerHTML = '🔍 ' + platform.charAt(0).toUpperCase() + platform.slice(1) + ' Full Scrape';
-        });
+        }
 
-        // Page load hote hi ek baar check karein
-        document.getElementById('platformSelect').dispatchEvent(new Event('change'));
+        document.getElementById('platformSelect').addEventListener('change', updatePlatformUI);
+        updatePlatformUI();
 
         async function startScraping(mode) {
             const urls = document.getElementById('urlInput').value;
@@ -130,29 +136,22 @@
             if (mode === 'status') {
                 document.getElementById('loader').innerText = "⚡ Checking status (Fast Mode)...";
             } else {
-                document.getElementById('loader').innerText = "⏳ Fetching full data from " + platform.toUpperCase() + "...";
+                document.getElementById('loader').innerText = `⏳ Fetching full data from ${platform.toUpperCase()}...`;
             }
 
             const formData = new FormData();
             formData.append('urls', urls);
             formData.append('platform', platform); 
 
-            let endpoint = '/scrape_' + platform;
+            let endpoint = `/scrape_${platform}`;
             if (mode === 'status') endpoint = '/check_status';
 
             try {
                 const response = await fetch(endpoint, { method: 'POST', body: formData });
-                
-                if (response.status === 401) {
-                    window.location.href = '/';
-                    return;
-                }
+                if (response.status === 401) { window.location.href = '/'; return; }
                 
                 const data = await response.json();
-                
-                if (!response.ok || data.error) {
-                    throw new Error(data.error || 'Server error occurred');
-                }
+                if (!response.ok || data.error) { throw new Error(data.error || 'Server error occurred'); }
                 
                 currentScrapedData = data.results || [];
                 renderTable(mode, currentScrapedData);
@@ -175,27 +174,36 @@
             tbody.innerHTML = '';
             
             if (mode === 'status') {
-                thead.innerHTML = "<tr><th>Status</th><th>Video URL</th></tr>";
-                results.forEach(function(item) {
+                thead.innerHTML = `<tr><th>Status</th><th>Video URL</th></tr>`;
+                results.forEach(item => {
                     const tr = document.createElement('tr');
                     const isActive = item.status === 'Active';
-                    tr.innerHTML = "<td class='" + (isActive ? 'success' : 'failed') + "'>" + escapeHtml(item.status) + "</td>" +
-                                   "<td style='max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>" + escapeHtml(item.url) + "</td>";
+                    tr.innerHTML = `
+                        <td class="${isActive ? 'success' : 'failed'}">${escapeHtml(item.status)}</td>
+                        <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.url)}</td>
+                    `;
                     tbody.appendChild(tr);
                 });
             } else {
-                thead.innerHTML = "<tr><th>Status</th><th>Title</th><th>Author</th><th>Views</th><th>Likes</th><th>Duration</th><th>Date</th><th>Subs</th></tr>";
-                results.forEach(function(item) {
+                thead.innerHTML = `
+                    <tr>
+                        <th>Status</th><th>Title</th><th>Author</th><th>Views</th>
+                        <th>Likes</th><th>Duration</th><th>Date</th><th>Subs</th>
+                    </tr>
+                `;
+                results.forEach(item => {
                     const tr = document.createElement('tr');
                     const isSuccess = item.status === 'Active';
-                    tr.innerHTML = "<td class='" + (isSuccess ? 'success' : 'failed') + "'>" + escapeHtml(item.status) + "</td>" +
-                                   "<td style='max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' title='" + escapeHtml(item.title) + "'>" + escapeHtml(item.title) + "</td>" +
-                                   "<td>" + escapeHtml(item.author) + "</td>" +
-                                   "<td><b>" + escapeHtml(item.views) + "</b></td>" +
-                                   "<td>" + escapeHtml(item.likes) + "</td>" +
-                                   "<td>" + escapeHtml(item.duration) + "</td>" +
-                                   "<td>" + escapeHtml(item.date) + "</td>" +
-                                   "<td>" + escapeHtml(item.subs) + "</td>";
+                    tr.innerHTML = `
+                        <td class="${isSuccess ? 'success' : 'failed'}">${escapeHtml(item.status)}</td>
+                        <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</td>
+                        <td>${escapeHtml(item.author)}</td>
+                        <td><b>${escapeHtml(item.views)}</b></td>
+                        <td>${escapeHtml(item.likes)}</td>
+                        <td>${escapeHtml(item.duration)}</td>
+                        <td>${escapeHtml(item.date)}</td>
+                        <td>${escapeHtml(item.subs)}</td>
+                    `;
                     tbody.appendChild(tr);
                 });
             }
@@ -207,17 +215,17 @@
             
             if (currentMode === 'status') {
                 textToCopy = "Status\tURL\n";
-                currentScrapedData.forEach(function(item) {
-                    textToCopy += item.status + "\t" + item.url + "\n";
+                currentScrapedData.forEach(item => {
+                    textToCopy += `${item.status}\t${item.url}\n`;
                 });
             } else {
                 textToCopy = "Status\tTitle\tAuthor\tViews\tLikes\tDuration\tDate\tSubs\n";
-                currentScrapedData.forEach(function(item) {
-                    textToCopy += item.status + "\t" + item.title + "\t" + item.author + "\t" + item.views + "\t" + item.likes + "\t" + item.duration + "\t" + item.date + "\t" + item.subs + "\n";
+                currentScrapedData.forEach(item => {
+                    textToCopy += `${item.status}\t${item.title}\t${item.author}\t${item.views}\t${item.likes}\t${item.duration}\t${item.date}\t${item.subs}\n`;
                 });
             }
 
-            navigator.clipboard.writeText(textToCopy).then(function() {
+            navigator.clipboard.writeText(textToCopy).then(() => {
                 alert("✅ Data copied! Paste in Excel/Sheet.");
             });
         }
