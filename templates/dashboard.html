@@ -14,7 +14,6 @@
             --text-main: #ffffff;
             --text-muted: #8b949e;
             
-            /* Brand Colors */
             --color-youtube: #ff0000;
             --color-tiktok: #ff0050;
             --color-okru: #ff8c00;
@@ -99,7 +98,7 @@
             background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border); padding: 35px; border-radius: 24px; 
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-            position: relative; overflow: visible;
+            position: relative; overflow: visible; margin-bottom: 30px;
         }
         
         .limit-banner {
@@ -210,8 +209,18 @@
         ::-webkit-scrollbar-thumb { background: rgba(0, 242, 254, 0.3); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(0, 242, 254, 0.6); }
 
-        .app-footer { text-align: center; margin-top: 50px; font-size: 14px; color: #666; letter-spacing: 1px; font-weight: 500; }
+        .app-footer { text-align: center; margin-top: 20px; font-size: 14px; color: #666; letter-spacing: 1px; font-weight: 500; }
         .app-footer span { color: var(--primary); font-weight: 800; text-shadow: 0 0 10px rgba(0, 242, 254, 0.4); }
+
+        /* JSON Upload Area */
+        .json-upload-area {
+            display: flex; gap: 15px; align-items: center; flex-wrap: wrap;
+            background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px; border: 1px dashed var(--glass-border);
+        }
+        input[type="file"] {
+            background: rgba(0,0,0,0.5); padding: 12px; border-radius: 8px; 
+            border: 1px solid var(--glass-border); color: white; flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -302,6 +311,33 @@
                 <table id="resultsTable">
                     <thead id="tableHead"></thead>
                     <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELEGRAM JSON PARSER SECTION -->
+    <div class="main-card">
+        <h2 style="color: var(--primary); font-size: 20px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+            <span>📁</span> JSON / Telegram Data Extractor
+        </h2>
+        <p style="color: #888; font-size: 14px; margin-bottom: 20px;">
+            Upload a Telegram JSON export file to extract data into a table and download as CSV (Excel).
+        </p>
+        
+        <div class="json-upload-area">
+            <input type="file" id="jsonFileInput" accept=".json">
+            <button onclick="parseJSONFile()" class="btn-action btn-full-scan" style="padding: 12px 20px; font-size: 14px;">Parse & Preview</button>
+            <button onclick="downloadJSONCSV()" class="btn-copy" style="padding: 12px 20px; font-size: 14px;">📥 Download CSV</button>
+        </div>
+
+        <div id="jsonLoader" class="loader" style="color: #00ff88;">⏳ Parsing JSON file...</div>
+
+        <div id="jsonResultsArea" style="display:none; margin-top: 25px;">
+            <div class="table-container">
+                <table id="jsonTable">
+                    <thead id="jsonTableHead"></thead>
+                    <tbody id="jsonTableBody"></tbody>
                 </table>
             </div>
         </div>
@@ -540,6 +576,73 @@
             navigator.clipboard.writeText(textToCopy).then(() => {
                 alert("✅ Data copied to clipboard! You can paste it in Excel/Sheet.");
             });
+        }
+
+        // --- TELEGRAM JSON PARSER LOGIC ---
+        async function parseJSONFile() {
+            const fileInput = document.getElementById('jsonFileInput');
+            if (!fileInput.files.length) { alert("Please select a JSON file first."); return; }
+            
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            document.getElementById('jsonLoader').style.display = 'block';
+            document.getElementById('jsonResultsArea').style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/parse_telegram', { method: 'POST', body: formData });
+                if (response.status === 401) { window.location.href = '/'; return; }
+                
+                const data = await response.json();
+                if (!response.ok) { throw new Error(data.error || "Failed to parse JSON."); }
+                
+                const thead = document.getElementById('jsonTableHead');
+                const tbody = document.getElementById('jsonTableBody');
+                
+                thead.innerHTML = `<tr>${data.headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+                tbody.innerHTML = data.rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('');
+                
+                document.getElementById('jsonResultsArea').style.display = 'block';
+            } catch (error) {
+                alert("Error: " + error.message);
+            } finally {
+                document.getElementById('jsonLoader').style.display = 'none';
+            }
+        }
+
+        async function downloadJSONCSV() {
+            const fileInput = document.getElementById('jsonFileInput');
+            if (!fileInput.files.length) { alert("Please select a JSON file first."); return; }
+            
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            document.getElementById('jsonLoader').style.display = 'block';
+            document.getElementById('jsonLoader').innerText = "⏳ Generating CSV file...";
+
+            try {
+                const response = await fetch('/api/download_telegram_csv', { method: 'POST', body: formData });
+                if (response.status === 401) { window.location.href = '/'; return; }
+                if (!response.ok) { 
+                    const err = await response.json();
+                    throw new Error(err.error || "Download failed."); 
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = "telegram_export.csv";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                alert("Error: " + error.message);
+            } finally {
+                document.getElementById('jsonLoader').style.display = 'none';
+                document.getElementById('jsonLoader').innerText = "⏳ Parsing JSON file...";
+            }
         }
     </script>
 </body>

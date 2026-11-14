@@ -1,10 +1,13 @@
-﻿from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+﻿from fastapi import FastAPI, Request, Form, File, UploadFile
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from urllib.parse import quote
 import hashlib
 import hmac
 import os
+import io
+import csv
+import json
 import libsql_client
 from scrapers import youtube, tiktok, okru, dailymotion, vk, facebook, instagram, x
 
@@ -177,3 +180,99 @@ def api_check_status(request: Request, urls: str = Form(...), platform: str = Fo
         elif platform == "x": return {"results": x.check_status(urls)}
         else: return {"results": tiktok.check_status(urls)}
     except Exception as e: return JSONResponse({"error": str(e)}, status_code=500)
+
+# ==========================================
+# TELEGRAM JSON PARSER ROUTES
+# ==========================================
+def _extract_tg_text(msg):
+    text = msg.get("text", "")
+    if isinstance(text, list):
+        parts = []
+        for item in text:
+            if isinstance(item, str): parts.append(item)
+            elif isinstance(item, dict) and "text" in item: parts.append(item["text"])
+        return "".join(parts)
+    return str(text)
+
+def _parse_tg_json(file_contents):
+    try:
+        data = json.loads(file_contents)
+    except Exception as e:
+        return None, None, f"Invalid JSON file: {str(e)}"
+
+    messages = []
+    if isinstance(data, dict) and "messages" in data:
+        messages = data["messages"]
+    elif isinstance(data, list):
+        messages = data
+    else:
+        return None, None, "JSON format not recognized. Please upload Telegram export JSON."
+
+    if not messages:
+        return None, None, "No messages found in the JSON."
+
+    headers = ["ID", "Date", "From", "Text"]
+    has_media = any("media_type" in m for m in messages)
+    has_reply = any("reply_to_message_id" in m for m in messages)
+    
+    if has_media: headers.append("Media Type")
+    if has_reply: headers.append("Reply To")
+
+    rows = []
+    for msg in messages:
+        if not isinstance(msg, dict): continue
+        row = [
+            msg.get("id", ""),
+            msg.get("date", "").replace("T", " ")[:19],
+            msg.get("from", "Unknown"),
+            _extract_tg_text(msg)
+        ]
+        if has_media: row.append(msg.get("media_type", ""))
+        if has_reply: row.append(msg.get("reply_to_message_id", ""))
+        rows.append(row)
+
+    return headers, rows, None
+
+@app.post("/api/parse_telegram")
+async def parse_telegram(request: Request, file: UploadFile = File(...)):
+    if not get_current_user(request): return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
+    contents = await file.read()
+    try:
+        text_content = contents.decode("utf-8")
+    except:
+        return JSONResponse({"error": "File must be UTF-8 encoded text."}, status_code=400)
+
+    headers, rows, error = _parse_tg_json(text_content)
+    
+    if error:
+        return JSONResponse({"error": error}, status_code=400)
+        
+    return {"headers": headers, "rows": rows}
+
+@app.post("/api/download_telegram_csv")
+async def download_telegram_csv(request: Request, file: UploadFile = File(...)):
+    if not get_current_user(request): return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
+    contents = await file.read()
+    try:
+        text_content = contents.decode("utf-8")
+    except:
+        return JSONResponse({"error": "Invalid file encoding."}, status_code=400)
+
+    headers, rows, error = _parse_tg_json(text_content)
+    
+    if error:
+        return JSONResponse({"error": error}, status_code=400)
+        
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    csv_data = output.getvalue()
+    
+    return StreamingResponse(
+        iter([csv_data]), 
+        media_type="text/csv", 
+        headers={"Content-Disposition": "attachment; filename=telegram_export.csv"}
+    )
