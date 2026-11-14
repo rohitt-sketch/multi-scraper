@@ -8,7 +8,6 @@ import hashlib
 import hmac
 from scrapers import youtube, tiktok
 
-# App yahan define ho raha hai
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
@@ -29,13 +28,32 @@ def get_current_user(request: Request):
     email, sig = cookie_val.rsplit("|", 1)
     expected_sig = hmac.new(SECRET_KEY.encode("utf-8"), email.encode("utf-8"), hashlib.sha256).hexdigest()
     if hmac.compare_digest(sig, expected_sig):
-        return email
+        with sqlite3.connect(DB_NAME) as conn:
+            c = conn.cursor()
+            c.execute("SELECT email, status, is_admin FROM users WHERE email = ?", (email,))
+            user = c.fetchone()
+            if user and user[1] == 'approved':
+                return {"email": user[0], "is_admin": bool(user[2])}
     return None
 
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
-        c.execute("""CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, password TEXT)""")
+        c.execute("""CREATE TABLE IF NOT EXISTS users (
+            email TEXT PRIMARY KEY, 
+            password TEXT, 
+            status TEXT DEFAULT 'pending', 
+            is_admin INTEGER DEFAULT 0
+        )""")
+        
+        # --- ADMIN CREDENTIALS UPDATED HERE ---
+        admin_email = 'joshiirohitt@gmail.com'
+        admin_pass = 'WB@061329'
+        
+        c.execute("SELECT * FROM users WHERE email = ?", (admin_email,))
+        if not c.fetchone():
+            c.execute("INSERT INTO users (email, password, status, is_admin) VALUES (?, ?, ?, ?)", 
+                      (admin_email, hash_password(admin_pass), 'approved', 1))
         conn.commit()
 
 init_db()
@@ -53,13 +71,16 @@ async def register(email: str = Form(...), password: str = Form(...)):
     try:
         with sqlite3.connect(DB_NAME) as conn:
             c = conn.cursor()
-            c.execute("INSERT INTO users (email, password) VALUES (?, ?)", (email, hashed_pw))
+            c.execute("INSERT INTO users (email, password, status) VALUES (?, ?, 'pending')", (email, hashed_pw))
             conn.commit()
-        response = RedirectResponse(url="/dashboard", status_code=303)
-        response.set_cookie(key="user_session", value=sign_session(email), httponly=True)
-        return response
+        
+        # English Message
+        msg = quote("Registration successful! Please wait for admin approval.")
+        return RedirectResponse(url=f"/?success={msg}", status_code=303)
+        
     except sqlite3.IntegrityError:
-        msg = quote("Yeh email pehle se registered hai!")
+        # English Message
+        msg = quote("This email is already registered!")
         return RedirectResponse(url=f"/?error={msg}", status_code=303)
 
 @app.post("/login")
@@ -67,29 +88,69 @@ async def login(email: str = Form(...), password: str = Form(...)):
     email = email.strip().lower()
     with sqlite3.connect(DB_NAME) as conn:
         c = conn.cursor()
-        c.execute("SELECT password FROM users WHERE email = ?", (email,))
+        c.execute("SELECT password, status FROM users WHERE email = ?", (email,))
         user = c.fetchone()
     
-    if user and (user[0] == hash_password(password) or user[0] == password):
-        response = RedirectResponse(url="/dashboard", status_code=303)
-        response.set_cookie(key="user_session", value=sign_session(email), httponly=True)
-        return response
-    else:
-        msg = quote("Galat email ya password!")
-        return RedirectResponse(url=f"/?error={msg}", status_code=303)
+    if user:
+        stored_password, status = user
+        if stored_password == hash_password(password) or stored_password == password:
+            
+            if status == 'pending':
+                # English Message
+                msg = quote("Your account is not approved yet. Please contact the admin.")
+                return RedirectResponse(url=f"/?error={msg}", status_code=303)
+            
+            response = RedirectResponse(url="/dashboard", status_code=303)
+            response.set_cookie(key="user_session", value=sign_session(email), httponly=True)
+            return response
+
+    # English Message
+    msg = quote("Invalid email or password!")
+    return RedirectResponse(url=f"/?error={msg}", status_code=303)
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    user_email = get_current_user(request)
-    if not user_email:
+    user_info = get_current_user(request)
+    if not user_info:
         return RedirectResponse(url="/", status_code=303)
-    return templates.TemplateResponse(request=request, name="dashboard.html", context={"user": user_email})
+    
+    return templates.TemplateResponse(
+        request=request, 
+        name="dashboard.html", 
+        context={"user": user_info["email"], "is_admin": user_info["is_admin"]}
+    )
 
 @app.get("/logout")
 async def logout():
     response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie("user_session")
     return response
+
+@app.get("/admin/approvals", response_class=HTMLResponse)
+async def admin_approvals(request: Request):
+    user_info = get_current_user(request)
+    if not user_info or not user_info["is_admin"]:
+        return RedirectResponse(url="/dashboard", status_code=303)
+
+    with sqlite3.connect(DB_NAME) as conn:
+        c = conn.cursor()
+        c.execute("SELECT email, status FROM users")
+        users = c.fetchall()
+
+    return templates.TemplateResponse(request=request, name="admin.html", context={"users": users})
+
+@app.post("/admin/approve")
+async def admin_approve(request: Request, target_email: str = Form(...)):
+    user_info = get_current_user(request)
+    if not user_info or not user_info["is_admin"]:
+        return RedirectResponse(url="/dashboard", status_code=303)
+
+    with sqlite3.connect(DB_NAME) as conn:
+        c = conn.cursor()
+        c.execute("UPDATE users SET status = 'approved' WHERE email = ?", (target_email,))
+        conn.commit()
+
+    return RedirectResponse(url="/admin/approvals", status_code=303)
 
 @app.post("/scrape_youtube")
 def api_scrape_youtube(request: Request, urls: str = Form(...)):

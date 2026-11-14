@@ -42,7 +42,7 @@
         </form>
 
         <p style="margin-top: 20px; font-size: 14px; color: #8b949e;">
-            <span id="toggle-text">Naya account hai? </span>
+            <span id="toggle-text">Don't have an account? </span>
             <span id="toggle-link" class="toggle-link" onclick="toggleForm()">Create Account</span>
         </p>
     </div>
@@ -51,6 +51,9 @@
         let isLogin = true;
 
         function toggleForm() {
+            // URL se error/success parameters remove karein
+            window.history.replaceState({}, document.title, window.location.pathname);
+
             isLogin = !isLogin;
             const title = document.getElementById('form-title');
             const btn = document.getElementById('submit-btn');
@@ -59,25 +62,28 @@
             const form = document.getElementById('auth-form');
             const statusMsg = document.getElementById('status-msg');
 
+            // Purana error/success message hata dein
             statusMsg.innerText = "";
+            statusMsg.className = ""; 
 
             if (isLogin) {
                 title.innerText = "Login";
                 btn.innerText = "Login";
                 form.action = "/login";
-                toggleText.innerText = "Naya account hai? ";
+                toggleText.innerText = "Don't have an account? ";
                 toggleLink.innerText = "Create Account";
             } else {
                 title.innerText = "Create Account";
                 btn.innerText = "Create Account";
                 form.action = "/register";
-                toggleText.innerText = "Pehle se account hai? ";
+                toggleText.innerText = "Already have an account? ";
                 toggleLink.innerText = "Login";
             }
         }
 
         const urlParams = new URLSearchParams(window.location.search);
         const msgBox = document.getElementById('status-msg');
+        
         if (urlParams.has('error')) {
             msgBox.className = 'error';
             msgBox.innerText = urlParams.get('error');
